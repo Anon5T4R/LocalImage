@@ -1,0 +1,39 @@
+[package]
+name = "localimage"
+version = "0.1.0"
+description = "LocalImage — visualizador, anotador e captura de tela 100% offline"
+authors = ["Taylor"]
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/Anon5T4R/LocalImage"
+
+[lib]
+# O sufixo `_lib` evita conflito entre o nome da lib e o do binário no Windows
+# (https://github.com/rust-lang/cargo/issues/8519).
+name = "localimage_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# protocol-asset: o visualizador carrega as imagens direto do disco.
+tauri = { version = "2", features = ["protocol-asset"] }
+tauri-plugin-opener = "2"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+# Operações de imagem em Rust puro (decode/resize/convert) — sem sidecar.
+image = "0.25"
+# EXIF: mostrar metadados e (por construção) removê-los ao exportar.
+kamadak-exif = "0.6"
+# Excluir = lixeira do SO, nunca delete permanente.
+trash = "5"
+
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-single-instance = "2"
+# Captura de tela multiplataforma (Windows/X11/Wayland via portais).
+xcap = "0.9"
+# Atalho global de captura (opt-in nas configurações).
+tauri-plugin-global-shortcut = "2"

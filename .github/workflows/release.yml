@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            rust-target: x86_64-pc-windows-msvc
+            bundles: nsis
+          - platform: ubuntu-22.04
+            rust-target: x86_64-unknown-linux-gnu
+            bundles: appimage
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-target }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libappindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            libxdo-dev \
+            libxcb1-dev \
+            libxcb-randr0-dev \
+            libxcb-shm0-dev \
+            libdbus-1-dev \
+            libx11-dev \
+            build-essential \
+            curl wget file
+
+      - name: Install JS deps
+        run: npm ci
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "LocalImage ${{ github.ref_name }}"
+          releaseBody: |
+            ## LocalImage ${{ github.ref_name }}
+
+            Visualizador, anotador e captura de tela 100% offline: navegue a pasta com
+            miniaturas, anote screenshots (seta, tarja, texto, passos numerados, recorte),
+            capture tela/janela direto pro anotador (atalho global opcional), converta/
+            redimensione/comprima em lote e veja o EXIF — que é sempre removido nos exports.
+
+            ### Downloads
+            - **Windows — Instalador:** `*-setup.exe`
+            - **Linux — AppImage:** `*.AppImage` (dê permissão de execução e rode)
+
+            > O app NÃO rouba a associação de imagens do sistema — abra pelo LocalImage
+            > (ou associe manualmente) se quiser usá-lo como visualizador padrão.
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: false
+          args: --bundles ${{ matrix.bundles }}

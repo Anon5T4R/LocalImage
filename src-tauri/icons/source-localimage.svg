@@ -1,0 +1,39 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2dd4bf"/>
+      <stop offset="1" stop-color="#0369a1"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- fundo -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
+  <rect x="64" y="64" width="896" height="512" rx="200" fill="url(#sheen)"/>
+
+  <!-- moldura da foto -->
+  <rect x="212" y="252" width="600" height="460" rx="44" fill="#ffffff" opacity="0.95"/>
+  <!-- paisagem: montanhas + sol -->
+  <circle cx="640" cy="380" r="52" fill="#f59e0b"/>
+  <path d="M 252 656 L 420 440 L 520 560 L 600 470 L 772 656 Z" fill="#0f766e"/>
+  <rect x="212" y="252" width="600" height="460" rx="44" fill="none"/>
+
+  <!-- cantos de captura -->
+  <g stroke="#ffffff" stroke-width="30" stroke-linecap="round" fill="none" opacity="0.95">
+    <path d="M 148 300 L 148 200 Q 148 172 176 172 L 276 172"/>
+    <path d="M 876 724 L 876 824 Q 876 852 848 852 L 748 852"/>
+  </g>
+
+  <!-- caneta de anotação -->
+  <g transform="rotate(40 780 700)">
+    <rect x="742" y="560" width="76" height="230" rx="20" fill="#ffffff"/>
+    <path d="M 742 790 L 780 856 L 818 790 Z" fill="#ef4444"/>
+  </g>
+
+  <!-- easter egg da marca -->
+  <text x="360" y="900" font-family="Segoe Script, cursive" font-size="88"
+        fill="#ffffff" opacity="0.55" text-anchor="middle">Taylor</text>
+</svg>
