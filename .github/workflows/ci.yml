@@ -25,8 +25,7 @@ jobs:
         with:
           workspaces: src-tauri
 
-      # libxcb*/libdbus/libx11: xcap (captura X11) e global-hotkey no Linux.
-      # libpipewire + clang: o backend Wayland do xcap (libspa-sys usa bindgen).
+      # libxcb*/libdbus/libx11: xcap 0.4 (captura) e global-hotkey no Linux.
       - name: Install Linux dependencies
         run: |
           sudo apt-get update
@@ -41,9 +40,6 @@ jobs:
             libxcb-shm0-dev \
             libdbus-1-dev \
             libx11-dev \
-            libpipewire-0.3-dev \
-            libspa-0.2-dev \
-            clang \
             build-essential
 
       - name: Install JS deps

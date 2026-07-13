@@ -56,9 +56,6 @@ jobs:
             libxcb-shm0-dev \
             libdbus-1-dev \
             libx11-dev \
-            libpipewire-0.3-dev \
-            libspa-0.2-dev \
-            clang \
             build-essential \
             curl wget file
 

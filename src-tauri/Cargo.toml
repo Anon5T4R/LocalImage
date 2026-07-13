@@ -33,7 +33,9 @@ trash = "5"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
-# Captura de tela multiplataforma (Windows/X11/Wayland via portais).
-xcap = "0.9"
+# Captura de tela multiplataforma. Pinado em 0.4 DE PROPÓSITO: 0.5+ captura
+# Wayland via pipewire/libspa, que não compila contra os headers do
+# ubuntu-22.04 (runner do release); 0.4 usa dbus/portal + xcb e compila limpo.
+xcap = "0.4"
 # Atalho global de captura (opt-in nas configurações).
 tauri-plugin-global-shortcut = "2"
