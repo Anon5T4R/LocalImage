@@ -24,11 +24,11 @@ pub fn monitors_list() -> Result<Vec<MonitorInfo>, String> {
     Ok(monitors
         .iter()
         .map(|m| MonitorInfo {
-            id: m.id(),
-            name: m.name().to_string(),
-            width: m.width(),
-            height: m.height(),
-            primary: m.is_primary(),
+            id: m.id().unwrap_or(0),
+            name: m.name().unwrap_or_else(|_| "Tela".into()),
+            width: m.width().unwrap_or(0),
+            height: m.height().unwrap_or(0),
+            primary: m.is_primary().unwrap_or(false),
         })
         .collect())
 }
@@ -46,15 +46,19 @@ pub fn windows_list() -> Result<Vec<WindowInfo>, String> {
     let windows = Window::all().map_err(|e| format!("listar janelas: {}", e))?;
     let mut out = Vec::new();
     for w in windows {
-        let title = w.title().to_string();
-        if title.trim().is_empty() || w.is_minimized() {
+        let title = w.title().unwrap_or_default();
+        if title.trim().is_empty() || w.is_minimized().unwrap_or(false) {
             continue;
         }
         // A própria janela do LocalImage não interessa.
         if title == "LocalImage" {
             continue;
         }
-        out.push(WindowInfo { id: w.id(), title, app: w.app_name().to_string() });
+        out.push(WindowInfo {
+            id: w.id().unwrap_or(0),
+            title,
+            app: w.app_name().unwrap_or_default(),
+        });
     }
     Ok(out)
 }
@@ -93,7 +97,10 @@ pub fn capture_monitor(
     hide_self: bool,
 ) -> Result<String, String> {
     let monitors = Monitor::all().map_err(|e| format!("listar telas: {}", e))?;
-    let monitor = monitors.into_iter().find(|m| m.id() == id).ok_or("tela não encontrada")?;
+    let monitor = monitors
+        .into_iter()
+        .find(|m| m.id().unwrap_or(0) == id)
+        .ok_or("tela não encontrada")?;
 
     let win = app.get_webview_window("main");
     if hide_self {
@@ -119,7 +126,7 @@ pub fn capture_window(app: tauri::AppHandle, id: u32) -> Result<String, String> 
     let windows = Window::all().map_err(|e| format!("listar janelas: {}", e))?;
     let window = windows
         .into_iter()
-        .find(|w| w.id() == id)
+        .find(|w| w.id().unwrap_or(0) == id)
         .ok_or("janela não encontrada (fechou?)")?;
     let img = window.capture_image().map_err(|e| format!("capturar: {}", e))?;
     save_rgba(&app, img)
