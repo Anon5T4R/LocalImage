@@ -20,6 +20,8 @@ export default function ViewerView() {
   const openEditor = useStore((s) => s.openEditor);
   const deleteCurrent = useStore((s) => s.deleteCurrent);
   const setConvertOpen = useUi((s) => s.setConvertOpen);
+  const immersive = useUi((s) => s.immersive);
+  const setImmersive = useUi((s) => s.setImmersive);
 
   const path = files[index] ?? "";
   const [info, setInfo] = useState<ImageInfo | null>(null);
@@ -86,6 +88,24 @@ export default function ViewerView() {
     }
   }
 
+  // Modo imersivo: tela cheia do SO + interface escondida (só a imagem).
+  async function setImmersiveMode(on: boolean) {
+    setImmersive(on);
+    try {
+      await getCurrentWindow().setFullscreen(on);
+    } catch {
+      /* fora do Tauri — só esconde a interface */
+    }
+  }
+
+  // Ao sair do visualizador, garante que o modo imersivo não fique "grudado".
+  useEffect(() => {
+    return () => {
+      if (useUi.getState().immersive) void setImmersiveMode(false);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Atalhos do visualizador.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -101,11 +121,15 @@ export default function ViewerView() {
       else if (e.key.toLowerCase() === "e") openEditor(path);
       else if (e.key.toLowerCase() === "i") setShowExif((v) => !v);
       else if (e.key === "Delete") setConfirmDel(true);
-      else if (e.key === "Escape") setConfirmDel(false);
+      else if (e.key === "Escape") {
+        if (immersive) void setImmersiveMode(false);
+        else setConfirmDel(false);
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [step, effectiveZoom, openEditor, path]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, effectiveZoom, openEditor, path, immersive]);
 
   // Formato que o webview não decodifica (ex.: TIFF) → fallback via Rust.
   async function onImgError() {
@@ -121,7 +145,8 @@ export default function ViewerView() {
   const src = fallbackSrc || (path ? convertFileSrc(path) : "");
 
   return (
-    <div className="viewer">
+    <div className={`viewer${immersive ? " immersive" : ""}`}>
+      {!immersive && (
       <div className="viewer-bar">
         <button className="icon-btn" onClick={goHome} title="Início">
           ←
@@ -158,6 +183,13 @@ export default function ViewerView() {
             ⛶
           </button>
           <button
+            className="btn small"
+            onClick={() => void setImmersiveMode(true)}
+            title="Modo imersivo — só a imagem (Esc pra sair)"
+          >
+            ⤢
+          </button>
+          <button
             className={`btn small ${showExif ? "primary" : ""}`}
             onClick={() => setShowExif(!showExif)}
             title="Metadados EXIF (I)"
@@ -186,6 +218,7 @@ export default function ViewerView() {
           )}
         </div>
       </div>
+      )}
 
       <div
         className="viewer-area"
@@ -223,9 +256,18 @@ export default function ViewerView() {
             <div className="exif-note">Qualquer export do LocalImage remove o EXIF.</div>
           </aside>
         )}
+        {immersive && (
+          <button
+            className="immersive-exit"
+            onClick={() => void setImmersiveMode(false)}
+            title="Sair do modo imersivo (Esc)"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
-      {files.length > 1 && (
+      {files.length > 1 && !immersive && (
         <div className="filmstrip">
           {files.map((f, i) => (
             <img

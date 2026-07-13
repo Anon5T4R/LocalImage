@@ -22,6 +22,7 @@ export default function App() {
   const openPath = useStore((s) => s.openPath);
   const captureScreen = useStore((s) => s.captureScreen);
   const toast = useUi((s) => s.toast);
+  const immersive = useUi((s) => s.immersive);
   const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
@@ -66,7 +67,7 @@ export default function App() {
 
   return (
     <div className="app">
-      {mode !== "editor" && <TopBar />}
+      {mode !== "editor" && !immersive && <TopBar />}
       <main className="main">
         {mode === "home" && <HomeView />}
         {mode === "viewer" && <ViewerView />}

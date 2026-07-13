@@ -12,6 +12,8 @@ interface UiState {
   batchOpen: boolean;
   settingsOpen: boolean;
   windowPickOpen: boolean;
+  /** Modo imersivo do visualizador: só a imagem, interface escondida. */
+  immersive: boolean;
 
   toast(kind: Toast["kind"], text: string): void;
   dismissToast(id: number): void;
@@ -19,6 +21,7 @@ interface UiState {
   setBatchOpen(open: boolean): void;
   setSettingsOpen(open: boolean): void;
   setWindowPickOpen(open: boolean): void;
+  setImmersive(on: boolean): void;
 }
 
 let nextToast = 1;
@@ -29,6 +32,7 @@ export const useUi = create<UiState>((set) => ({
   batchOpen: false,
   settingsOpen: false,
   windowPickOpen: false,
+  immersive: false,
 
   toast(kind, text) {
     const id = nextToast++;
@@ -51,5 +55,8 @@ export const useUi = create<UiState>((set) => ({
   },
   setWindowPickOpen(open) {
     set({ windowPickOpen: open });
+  },
+  setImmersive(on) {
+    set({ immersive: on });
   },
 }));

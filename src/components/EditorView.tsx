@@ -44,6 +44,7 @@ export default function EditorView() {
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
   const draftRef = useRef<Annot | null>(null);
   const cropDraftRef = useRef<{ x: number; y: number } | null>(null);
   const [, forceRender] = useState(0);
@@ -129,16 +130,19 @@ export default function EditorView() {
 
   function onPointerDown(e: React.PointerEvent) {
     if (!base || pendingText) return;
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
     const p = toImageCoords(e);
-    if (tool === "crop") {
-      cropDraftRef.current = p;
-      setCrop({ x: p.x, y: p.y, w: 0, h: 0 });
-      return;
-    }
+    // Texto abre uma caixa flutuante — de propósito SEM captura de ponteiro:
+    // com captura, o clique devolvia o foco pro canvas, disparava o onBlur e a
+    // caixa sumia antes de dar pra digitar. O foco vai no requestAnimationFrame abaixo.
     if (tool === "text") {
       setPendingText(p);
       setTextValue("");
+      return;
+    }
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    if (tool === "crop") {
+      cropDraftRef.current = p;
+      setCrop({ x: p.x, y: p.y, w: 0, h: 0 });
       return;
     }
     if (tool === "step") {
@@ -226,6 +230,14 @@ export default function EditorView() {
       return prev.slice(0, -1);
     });
   }
+
+  // Foca a caixa de texto só no próximo frame — no mesmo tick do clique o foco
+  // nativo do canvas ganha e a caixa piscava e sumia.
+  useEffect(() => {
+    if (!pendingText) return;
+    const id = requestAnimationFrame(() => textRef.current?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [pendingText]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -406,9 +418,9 @@ export default function EditorView() {
               />
               {pendingText && textScreenPos && (
                 <textarea
+                  ref={textRef}
                   className="text-overlay"
                   style={textScreenPos}
-                  autoFocus
                   value={textValue}
                   placeholder="Digite e Enter"
                   onChange={(e) => setTextValue(e.target.value)}
