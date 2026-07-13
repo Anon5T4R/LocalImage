@@ -5,9 +5,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { openPath } from "@tauri-apps/plugin-opener";
 import * as be from "../lib/backend";
 import { fitScale, nextZoom } from "../lib/geometry";
-import { fileName, fmtBytes, type ExifEntry, type ImageInfo } from "../lib/types";
+import { fileName, fmtBytes, isVideoPath, type ExifEntry, type ImageInfo } from "../lib/types";
 import { useStore } from "../state/store";
 import { useUi } from "../state/ui";
 
@@ -22,8 +23,10 @@ export default function ViewerView() {
   const setConvertOpen = useUi((s) => s.setConvertOpen);
   const immersive = useUi((s) => s.immersive);
   const setImmersive = useUi((s) => s.setImmersive);
+  const toast = useUi((s) => s.toast);
 
   const path = files[index] ?? "";
+  const isVideo = isVideoPath(path);
   const [info, setInfo] = useState<ImageInfo | null>(null);
   const [exif, setExif] = useState<ExifEntry[]>([]);
   const [showExif, setShowExif] = useState(false);
@@ -44,7 +47,7 @@ export default function ViewerView() {
     setConfirmDel(false);
     setInfo(null);
     setExif([]);
-    if (!path) return;
+    if (!path || isVideoPath(path)) return; // vídeo não é decodificado aqui
     be.imageInfo(path).then(setInfo).catch(() => {});
     be.exifInfo(path).then(setExif).catch(() => {});
   }, [path]);
@@ -88,6 +91,15 @@ export default function ViewerView() {
     }
   }
 
+  // Vídeo não é reproduzido aqui — abre no player padrão do sistema.
+  async function openVideoExternally() {
+    try {
+      await openPath(path);
+    } catch (e) {
+      toast("error", `Não consegui abrir o vídeo: ${e}`);
+    }
+  }
+
   // Modo imersivo: tela cheia do SO + interface escondida (só a imagem).
   async function setImmersiveMode(on: boolean) {
     setImmersive(on);
@@ -113,7 +125,10 @@ export default function ViewerView() {
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (e.key === "ArrowLeft") step(-1);
       else if (e.key === "ArrowRight") step(1);
-      else if (e.key === "+" || e.key === "=") setZoom(nextZoom(effectiveZoom(), 1));
+      else if (isVideo) {
+        // Em vídeo, o resto dos atalhos de imagem não se aplica.
+        if (e.key === "Enter") void openVideoExternally();
+      } else if (e.key === "+" || e.key === "=") setZoom(nextZoom(effectiveZoom(), 1));
       else if (e.key === "-") setZoom(nextZoom(effectiveZoom(), -1));
       else if (e.key === "0") setZoom(0);
       else if (e.key === "1") setZoom(1);
@@ -129,7 +144,7 @@ export default function ViewerView() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, effectiveZoom, openEditor, path, immersive]);
+  }, [step, effectiveZoom, openEditor, path, immersive, isVideo]);
 
   // Formato que o webview não decodifica (ex.: TIFF) → fallback via Rust.
   async function onImgError() {
@@ -155,10 +170,20 @@ export default function ViewerView() {
           {fileName(path)}
         </span>
         <span className="viewer-meta">
-          {info && `${info.width}×${info.height} · ${fmtBytes(info.sizeBytes)}`}
+          {isVideo ? "vídeo" : info && `${info.width}×${info.height} · ${fmtBytes(info.sizeBytes)}`}
           {files.length > 1 && ` · ${index + 1}/${files.length}`}
         </span>
         <div className="viewer-actions">
+          {isVideo ? (
+            <button
+              className="btn small primary"
+              onClick={() => void openVideoExternally()}
+              title="Abrir no player padrão (Enter)"
+            >
+              ▶ Abrir vídeo
+            </button>
+          ) : (
+          <>
           <button className="btn small" onClick={() => setZoom(nextZoom(z, -1))} title="Menos zoom (-)">
             −
           </button>
@@ -202,6 +227,8 @@ export default function ViewerView() {
           <button className="btn small primary" onClick={() => openEditor(path)} title="Anotar (E)">
             ✎ Anotar
           </button>
+          </>
+          )}
           {confirmDel ? (
             <>
               <button className="btn small danger" onClick={() => void deleteCurrent()}>
@@ -228,17 +255,32 @@ export default function ViewerView() {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
       >
-        {src && (
-          <img
-            className="viewer-img"
-            src={src}
-            alt=""
-            draggable={false}
-            onError={() => void onImgError()}
-            style={{
-              transform: `translate(${pan.x}px, ${pan.y}px) rotate(${rotation}deg) scale(${z})`,
-            }}
-          />
+        {isVideo ? (
+          <div className="video-placeholder">
+            <div className="video-ph-icon">🎬</div>
+            <div className="video-ph-name" title={path}>
+              {fileName(path)}
+            </div>
+            <button className="btn primary" onClick={() => void openVideoExternally()}>
+              ▶ Abrir vídeo
+            </button>
+            <div className="video-ph-hint">
+              O LocalImage não reproduz vídeo — ele abre no player padrão do sistema.
+            </div>
+          </div>
+        ) : (
+          src && (
+            <img
+              className="viewer-img"
+              src={src}
+              alt=""
+              draggable={false}
+              onError={() => void onImgError()}
+              style={{
+                transform: `translate(${pan.x}px, ${pan.y}px) rotate(${rotation}deg) scale(${z})`,
+              }}
+            />
+          )
         )}
         {showExif && (
           <aside className="exif-panel">
@@ -269,16 +311,27 @@ export default function ViewerView() {
 
       {files.length > 1 && !immersive && (
         <div className="filmstrip">
-          {files.map((f, i) => (
-            <img
-              key={f}
-              src={convertFileSrc(f)}
-              className={i === index ? "active" : ""}
-              onClick={() => setIndex(i)}
-              loading="lazy"
-              alt=""
-            />
-          ))}
+          {files.map((f, i) =>
+            isVideoPath(f) ? (
+              <div
+                key={f}
+                className={`film-video ${i === index ? "active" : ""}`}
+                onClick={() => setIndex(i)}
+                title={fileName(f)}
+              >
+                ▶
+              </div>
+            ) : (
+              <img
+                key={f}
+                src={convertFileSrc(f)}
+                className={i === index ? "active" : ""}
+                onClick={() => setIndex(i)}
+                loading="lazy"
+                alt=""
+              />
+            ),
+          )}
         </div>
       )}
     </div>

@@ -11,7 +11,7 @@ import TopBar from "./components/TopBar";
 import ViewerView from "./components/ViewerView";
 import WindowPickModal from "./components/WindowPickModal";
 import { inTauri } from "./lib/backend";
-import { isImagePath } from "./lib/types";
+import { isMediaPath } from "./lib/types";
 import { useStore } from "./state/store";
 import { useUi } from "./state/ui";
 
@@ -46,16 +46,16 @@ export default function App() {
         else if (event.payload.type === "drop") {
           setDragging(false);
           const paths = event.payload.paths ?? [];
-          const img = paths.find((p) => isImagePath(p));
+          const media = paths.find((p) => isMediaPath(p));
           const any = paths[0];
-          if (img) void openPath(img);
+          if (media) void openPath(media);
           else if (any) void openPath(any); // pode ser uma pasta
           else toast("error", "Nada reconhecido nos itens soltos.");
         }
       })
       .then((fn) => unlisteners.push(fn));
     void listen<string>("open-file", (e) => {
-      if (isImagePath(e.payload)) void openPath(e.payload);
+      if (isMediaPath(e.payload)) void openPath(e.payload);
     }).then((fn) => unlisteners.push(fn));
     void listen("capture-shortcut", () => {
       void captureScreen();

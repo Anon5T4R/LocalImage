@@ -3,7 +3,7 @@
 
 import { create } from "zustand";
 import * as be from "../lib/backend";
-import { dirName, isImagePath, type CaptureEntry, type Settings } from "../lib/types";
+import { dirName, isMediaPath, type CaptureEntry, type Settings } from "../lib/types";
 import { useUi } from "./ui";
 
 const SETTINGS_KEY = "localimage-settings";
@@ -69,7 +69,7 @@ export const useStore = create<Store>((set, get) => ({
     // "Abrir com": imagem passada no launch.
     try {
       const startup = await be.getStartupFile();
-      if (startup && isImagePath(startup)) await get().openPath(startup);
+      if (startup && isMediaPath(startup)) await get().openPath(startup);
     } catch {
       /* ignore */
     }
@@ -91,7 +91,7 @@ export const useStore = create<Store>((set, get) => ({
   async openPath(path) {
     const toast = useUi.getState().toast;
     try {
-      const isFile = isImagePath(path);
+      const isFile = isMediaPath(path);
       const dir = isFile ? dirName(path) : path;
       const files = await be.listDir(dir);
       if (files.length === 0) {

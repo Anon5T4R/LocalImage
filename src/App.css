@@ -403,6 +403,57 @@ input[type="checkbox"] {
   background: rgba(0, 0, 0, 0.6);
 }
 
+/* vídeo no visualizador (não reproduzido aqui — abre no player do sistema) */
+.video-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 32px;
+  text-align: center;
+  color: var(--text);
+}
+.video-ph-icon {
+  font-size: 56px;
+  opacity: 0.85;
+}
+.video-ph-name {
+  font-weight: 600;
+  max-width: 60vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.video-ph-hint {
+  color: var(--text-dim);
+  font-size: 13px;
+  max-width: 340px;
+  line-height: 1.5;
+}
+.filmstrip .film-video {
+  height: 56px;
+  width: 76px;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: 0.6;
+  border: 2px solid transparent;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  font-size: 18px;
+}
+.filmstrip .film-video:hover {
+  opacity: 0.9;
+}
+.filmstrip .film-video.active {
+  opacity: 1;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .exif-panel {
   position: absolute;
   top: 12px;

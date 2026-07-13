@@ -14,15 +14,29 @@ use image::ImageFormat;
 pub const IMAGE_EXTS: &[&str] =
     &["png", "jpg", "jpeg", "webp", "gif", "bmp", "tif", "tiff", "ico", "avif"];
 
-fn is_image(path: &Path) -> bool {
+/// Vídeos entram na navegação (pra não sumirem do meio da pasta), mas o
+/// LocalImage não os decodifica — só abre no app padrão do sistema.
+pub const VIDEO_EXTS: &[&str] =
+    &["mp4", "mov", "mkv", "webm", "avi", "m4v", "wmv", "flv", "mpg", "mpeg", "m2ts", "ts"];
+
+fn has_ext(path: &Path, exts: &[&str]) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
-        .map(|e| IMAGE_EXTS.contains(&e.to_ascii_lowercase().as_str()))
+        .map(|e| exts.contains(&e.to_ascii_lowercase().as_str()))
         .unwrap_or(false)
 }
 
-/// Lista as imagens da pasta (ordenadas sem diferenciar maiúsculas) — é a
-/// sequência das setas ←/→ do visualizador.
+fn is_image(path: &Path) -> bool {
+    has_ext(path, IMAGE_EXTS)
+}
+
+fn is_video(path: &Path) -> bool {
+    has_ext(path, VIDEO_EXTS)
+}
+
+/// Lista imagens e vídeos da pasta (ordenados sem diferenciar maiúsculas) — é a
+/// sequência das setas ←/→ do visualizador. Vídeos ficam na lista pra não
+/// sumirem do meio da pasta; o front os abre no app padrão do sistema.
 #[tauri::command(async)]
 pub fn list_dir(dir: String) -> Result<Vec<String>, String> {
     let base = PathBuf::from(&dir);
@@ -30,7 +44,7 @@ pub fn list_dir(dir: String) -> Result<Vec<String>, String> {
     let mut files: Vec<PathBuf> = entries
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.is_file() && is_image(p))
+        .filter(|p| p.is_file() && (is_image(p) || is_video(p)))
         .collect();
     files.sort_by_key(|p| {
         p.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default()
@@ -287,7 +301,7 @@ mod tests {
     #[test]
     fn list_dir_filtra_e_ordena() {
         let dir = temp_dir();
-        for name in ["b.PNG", "a.jpg", "notas.txt", "c.webp"] {
+        for name in ["b.PNG", "a.jpg", "notas.txt", "c.webp", "d.MP4"] {
             std::fs::write(dir.join(name), b"x").unwrap();
         }
         let got = list_dir(dir.to_string_lossy().to_string()).unwrap();
@@ -295,7 +309,8 @@ mod tests {
             .iter()
             .map(|p| Path::new(p).file_name().unwrap().to_string_lossy().to_lowercase())
             .collect();
-        assert_eq!(names, vec!["a.jpg", "b.png", "c.webp"]);
+        // Vídeo (d.mp4) entra na lista; .txt fica de fora.
+        assert_eq!(names, vec!["a.jpg", "b.png", "c.webp", "d.mp4"]);
         let _ = std::fs::remove_dir_all(&dir);
     }
 

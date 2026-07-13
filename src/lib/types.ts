@@ -57,9 +57,37 @@ export const IMAGE_EXTENSIONS = [
   "avif",
 ];
 
+// Vídeos entram na navegação da pasta, mas o LocalImage não os decodifica —
+// abre no app padrão do sistema (mantém a fronteira com o LocalMedia).
+export const VIDEO_EXTENSIONS = [
+  "mp4",
+  "mov",
+  "mkv",
+  "webm",
+  "avi",
+  "m4v",
+  "wmv",
+  "flv",
+  "mpg",
+  "mpeg",
+  "m2ts",
+  "ts",
+];
+
+function extOf(path: string): string {
+  return path.split(".").pop()?.toLowerCase() ?? "";
+}
+
 export function isImagePath(path: string): boolean {
-  const ext = path.split(".").pop()?.toLowerCase() ?? "";
-  return IMAGE_EXTENSIONS.includes(ext);
+  return IMAGE_EXTENSIONS.includes(extOf(path));
+}
+
+export function isVideoPath(path: string): boolean {
+  return VIDEO_EXTENSIONS.includes(extOf(path));
+}
+
+export function isMediaPath(path: string): boolean {
+  return isImagePath(path) || isVideoPath(path);
 }
 
 export function fileName(path: string): string {
