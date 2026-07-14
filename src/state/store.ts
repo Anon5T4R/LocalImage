@@ -11,12 +11,13 @@ const SETTINGS_KEY = "localimage-settings";
 function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    if (raw) return { theme: "light", shortcut: "", hideSelf: true, ...JSON.parse(raw) };
+    if (raw)
+      return { theme: "light", shortcut: "", hideSelf: true, autostart: false, ...JSON.parse(raw) };
   } catch {
     /* defaults */
   }
   const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  return { theme: dark ? "dark" : "light", shortcut: "", hideSelf: true };
+  return { theme: dark ? "dark" : "light", shortcut: "", hideSelf: true, autostart: false };
 }
 
 export type Mode = "home" | "viewer" | "editor";
@@ -66,6 +67,17 @@ export const useStore = create<Store>((set, get) => ({
     if (accel) {
       be.shortcutSet(accel).catch((e) => useUi.getState().toast("error", String(e)));
     }
+    // Estado real do "iniciar com o sistema" mora no SO — reflete nas settings.
+    try {
+      const on = await be.autostartIsEnabled();
+      if (on !== get().settings.autostart) {
+        const settings = { ...get().settings, autostart: on };
+        set({ settings });
+        localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      }
+    } catch {
+      /* ignore */
+    }
     // "Abrir com": imagem passada no launch.
     try {
       const startup = await be.getStartupFile();
@@ -82,6 +94,11 @@ export const useStore = create<Store>((set, get) => ({
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
     if ("shortcut" in patch) {
       be.shortcutSet(settings.shortcut).catch((e) =>
+        useUi.getState().toast("error", String(e)),
+      );
+    }
+    if ("autostart" in patch) {
+      be.autostartSet(settings.autostart).catch((e) =>
         useUi.getState().toast("error", String(e)),
       );
     }
@@ -170,6 +187,7 @@ export const useStore = create<Store>((set, get) => ({
       const path = await be.captureMonitor(target.id, get().settings.hideSelf);
       await get().refreshCaptures();
       get().openEditor(path);
+      await be.showMainWindow(); // pode ter vindo do atalho com o app na bandeja
     } catch (e) {
       toast("error", String(e));
     }
@@ -181,6 +199,7 @@ export const useStore = create<Store>((set, get) => ({
       const path = await be.captureWindow(id);
       await get().refreshCaptures();
       get().openEditor(path);
+      await be.showMainWindow();
     } catch (e) {
       toast("error", String(e));
     }

@@ -1,6 +1,6 @@
 [package]
 name = "localimage"
-version = "0.3.0"
+version = "0.4.0"
 description = "LocalImage — visualizador, anotador e captura de tela 100% offline"
 authors = ["Taylor"]
 edition = "2021"
@@ -18,7 +18,8 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 # protocol-asset: o visualizador carrega as imagens direto do disco.
-tauri = { version = "2", features = ["protocol-asset"] }
+# tray-icon: o app fica residente na bandeja pro atalho global funcionar de janela fechada.
+tauri = { version = "2", features = ["protocol-asset", "tray-icon"] }
 tauri-plugin-opener = "2"
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
@@ -39,3 +40,5 @@ tauri-plugin-single-instance = "2"
 xcap = "0.4"
 # Atalho global de captura (opt-in nas configurações).
 tauri-plugin-global-shortcut = "2"
+# Iniciar com o sistema (opt-in) — abre oculto direto na bandeja.
+tauri-plugin-autostart = "2"

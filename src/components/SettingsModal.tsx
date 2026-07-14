@@ -149,7 +149,24 @@ export default function SettingsModal() {
               a janela do LocalImage some antes do clique da captura de tela
             </span>
           </div>
+
+          <label>Iniciar com o sistema</label>
+          <div className="form-inline">
+            <input
+              type="checkbox"
+              checked={settings.autostart}
+              onChange={(e) => setSettings({ autostart: e.target.checked })}
+            />
+            <span className="card-hint" style={{ margin: 0 }}>
+              abre junto com o login, oculto na bandeja — o atalho já fica valendo
+            </span>
+          </div>
         </div>
+
+        <p className="card-hint" style={{ marginTop: 10 }}>
+          Fechar a janela (X) manda o app pra bandeja pro atalho continuar funcionando; para
+          encerrar de vez, use <b>Sair</b> no ícone da bandeja.
+        </p>
         <p className="card-hint" style={{ marginTop: 10 }}>
           O mais fácil é <b>Gravar atalho</b> e apertar a combinação (ex.: Ctrl+Shift+X); Esc
           cancela a gravação. Se preferir digitar, o formato é <code>Modificador+Tecla</code>

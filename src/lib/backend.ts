@@ -1,6 +1,7 @@
 // Wrappers dos comandos Rust (Tauri v2: chaves camelCase no invoke).
 
 import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import type {
   CaptureEntry,
   ExifEntry,
@@ -43,6 +44,21 @@ export const writeFileBase64 = (path: string, base64Data: string) =>
   cmd<void>("write_file_base64", { path, base64Data });
 export const uniquePath = (path: string) => cmd<string>("unique_path", { path });
 export const shortcutSet = (accel: string) => cmd<void>("shortcut_set", { accel });
+export const autostartSet = (enable: boolean) => cmd<void>("autostart_set", { enable });
+export const autostartIsEnabled = () => cmd<boolean>("autostart_is_enabled");
+
+/** Traz a janela de volta (usada depois de uma captura com o app na bandeja). */
+export async function showMainWindow(): Promise<void> {
+  if (!inTauri()) return;
+  try {
+    const w = getCurrentWindow();
+    await w.show();
+    await w.unminimize();
+    await w.setFocus();
+  } catch {
+    /* fora do Tauri */
+  }
+}
 
 export const monitorsList = () => cmd<MonitorInfo[]>("monitors_list");
 export const windowsList = () => cmd<WindowInfo[]>("windows_list");

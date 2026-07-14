@@ -42,6 +42,8 @@ export interface Settings {
   shortcut: string;
   /** Esconder a janela do app antes de capturar a tela. */
   hideSelf: boolean;
+  /** Iniciar com o sistema (abre oculto na bandeja). */
+  autostart: boolean;
 }
 
 export const IMAGE_EXTENSIONS = [
