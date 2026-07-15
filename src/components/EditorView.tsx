@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import * as be from "../lib/backend";
+import { t, type MessageKey } from "../lib/i18n";
 import { drawAll, isNoop, nextStepNumber, type Annot, type Tool } from "../lib/annot";
 import { clampRect, fitScale, normRect, type Rect } from "../lib/geometry";
 import { dirName, fileName } from "../lib/types";
@@ -14,15 +15,15 @@ import { useStore } from "../state/store";
 import { useUi } from "../state/ui";
 
 const COLORS = ["#ef4444", "#f59e0b", "#22c55e", "#3b82f6", "#a855f7", "#111827", "#ffffff"];
-const TOOLS: [Tool, string, string][] = [
-  ["crop", "⬚", "Recortar"],
-  ["arrow", "↗", "Seta"],
-  ["rect", "▭", "Caixa"],
-  ["highlight", "▨", "Realce"],
-  ["redact", "█", "Tarja"],
-  ["pen", "✎", "Desenho livre"],
-  ["text", "T", "Texto"],
-  ["step", "①", "Passo numerado"],
+const TOOLS: [Tool, string, MessageKey][] = [
+  ["crop", "⬚", "editor.tool.crop"],
+  ["arrow", "↗", "editor.tool.arrow"],
+  ["rect", "▭", "editor.tool.rect"],
+  ["highlight", "▨", "editor.tool.highlight"],
+  ["redact", "█", "editor.tool.redact"],
+  ["pen", "✎", "editor.tool.pen"],
+  ["text", "T", "editor.tool.text"],
+  ["step", "①", "editor.tool.step"],
 ];
 
 export default function EditorView() {
@@ -292,7 +293,7 @@ export default function EditorView() {
     const ext = format === "jpeg" ? "jpg" : format;
     const suggested = `${dirName(editorPath)}${navigator.userAgent.includes("Windows") ? "\\" : "/"}${stem} - editado.${ext}`;
     const out = await save({
-      title: "Salvar imagem",
+      title: t("editor.saveTitle"),
       defaultPath: suggested,
       filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
     }).catch(() => null);
@@ -302,9 +303,9 @@ export default function EditorView() {
       const blob: Blob | null = await new Promise((resolve) =>
         canvas.toBlob(resolve, `image/${format}`, format === "png" ? undefined : 0.92),
       );
-      if (!blob) throw new Error("falha ao encodar a imagem");
+      if (!blob) throw new Error(t("editor.encodeFailed"));
       await be.writeFileBase64(out, await blobToBase64(blob));
-      toast("success", `Salvo: ${out}`);
+      toast("success", t("editor.saved", { out }));
       void revealItemInDir(out).catch(() => {});
     } catch (e) {
       toast("error", String(e));
@@ -320,11 +321,11 @@ export default function EditorView() {
       const blob: Blob | null = await new Promise((resolve) =>
         canvas.toBlob(resolve, "image/png"),
       );
-      if (!blob) throw new Error("falha ao encodar");
+      if (!blob) throw new Error(t("editor.encodeFailedCopy"));
       await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-      toast("success", "Imagem copiada.");
+      toast("success", t("editor.copied"));
     } catch {
-      toast("error", "Clipboard de imagem indisponível — use Salvar como.");
+      toast("error", t("editor.clipboardUnavailable"));
     }
   }
 
@@ -335,7 +336,7 @@ export default function EditorView() {
   return (
     <div className="editor">
       <div className="editor-bar">
-        <button className="icon-btn" onClick={closeEditor} title="Voltar">
+        <button className="icon-btn" onClick={closeEditor} title={t("editor.back")}>
           ←
         </button>
         <span className="viewer-name" title={editorPath}>
@@ -343,21 +344,21 @@ export default function EditorView() {
         </span>
         <div className="viewer-actions">
           <button className="btn small" onClick={undo} disabled={annots.length === 0}>
-            ↶ Desfazer
+            ↶ {t("editor.undo")}
           </button>
           <button className="btn small" onClick={redoOne} disabled={redo.length === 0}>
-            ↷ Refazer
+            ↷ {t("editor.redo")}
           </button>
           {crop && (
             <button className="btn small" onClick={() => setCrop(null)}>
-              Limpar recorte
+              {t("editor.clearCrop")}
             </button>
           )}
           <button className="btn small" onClick={() => void copyToClipboard()}>
-            Copiar
+            {t("editor.copy")}
           </button>
           <button className="btn small" disabled={saving} onClick={() => void saveAs("png")}>
-            Salvar PNG
+            {t("editor.savePng")}
           </button>
           <button className="btn small" disabled={saving} onClick={() => void saveAs("jpeg")}>
             JPG
@@ -374,7 +375,7 @@ export default function EditorView() {
             <button
               key={id}
               className={`tool-btn ${tool === id ? "active" : ""}`}
-              title={label}
+              title={t(label)}
               onClick={() => setTool(id)}
             >
               {glyph}
@@ -396,14 +397,14 @@ export default function EditorView() {
             min={2}
             max={12}
             value={stroke}
-            title="Espessura"
+            title={t("editor.stroke")}
             onChange={(e) => setStroke(Number(e.target.value))}
           />
         </div>
 
         <div className="editor-canvas-wrap" ref={wrapRef}>
           {!base ? (
-            <div className="editor-loading">Carregando…</div>
+            <div className="editor-loading">{t("editor.loading")}</div>
           ) : (
             <div
               className="editor-canvas-holder"
@@ -422,7 +423,7 @@ export default function EditorView() {
                   className="text-overlay"
                   style={textScreenPos}
                   value={textValue}
-                  placeholder="Digite e Enter"
+                  placeholder={t("editor.textPlaceholder")}
                   onChange={(e) => setTextValue(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {

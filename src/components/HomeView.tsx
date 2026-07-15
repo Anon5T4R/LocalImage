@@ -1,5 +1,6 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { t } from "../lib/i18n";
 import { fileName, fmtDate, IMAGE_EXTENSIONS } from "../lib/types";
 import { useStore } from "../state/store";
 import { useUi } from "../state/ui";
@@ -16,14 +17,14 @@ export default function HomeView() {
 
   async function pickImage() {
     const picked = await open({
-      title: "Abrir imagem",
-      filters: [{ name: "Imagens", extensions: IMAGE_EXTENSIONS }],
+      title: t("home.openImageTitle"),
+      filters: [{ name: t("common.imagesFilter"), extensions: IMAGE_EXTENSIONS }],
     }).catch(() => null);
     if (typeof picked === "string" && picked) void openPath(picked);
   }
 
   async function pickFolder() {
-    const picked = await open({ directory: true, title: "Abrir pasta de imagens" }).catch(
+    const picked = await open({ directory: true, title: t("home.openFolderTitle") }).catch(
       () => null,
     );
     if (typeof picked === "string" && picked) void openPath(picked);
@@ -32,58 +33,53 @@ export default function HomeView() {
   return (
     <div className="home">
       <div className="home-hero">
-        <h1>Veja, anote e capture — sem abrir editor pesado</h1>
-        <p className="home-sub">
-          Arraste uma imagem pra cá, abra uma pasta ou capture a tela. Tudo local; qualquer
-          export remove o EXIF.
-        </p>
+        <h1>{t("home.heroTitle")}</h1>
+        <p className="home-sub">{t("home.heroSub")}</p>
       </div>
 
       <div className="home-cards">
         <div className="card drop-card" onClick={pickImage}>
           <div className="drop-icon">🖼</div>
-          <div className="card-title">Abrir imagem</div>
-          <p className="card-hint">png, jpg, webp, gif, bmp, tiff… As setas navegam a pasta.</p>
+          <div className="card-title">{t("home.openImage")}</div>
+          <p className="card-hint">{t("home.openImageHint")}</p>
         </div>
         <div className="card drop-card" onClick={pickFolder}>
           <div className="drop-icon">📁</div>
-          <div className="card-title">Abrir pasta</div>
-          <p className="card-hint">Visualiza a pasta inteira com tira de miniaturas.</p>
+          <div className="card-title">{t("home.openFolder")}</div>
+          <p className="card-hint">{t("home.openFolderHint")}</p>
         </div>
         <div className="card">
-          <div className="card-title">Capturar tela</div>
+          <div className="card-title">{t("home.captureScreen")}</div>
           <p className="card-hint">
-            A captura abre direto no anotador (seta, tarja, texto, recorte…).
+            {t("home.captureHint")}
             {settings.shortcut && (
               <>
                 {" "}
-                Atalho global: <b>{settings.shortcut}</b>.
+                {t("home.globalShortcutLabel")} <b>{settings.shortcut}</b>.
               </>
             )}
           </p>
           <div className="capture-actions">
             <button className="btn primary" onClick={() => void captureScreen()}>
-              ⛶ Tela inteira
+              ⛶ {t("home.fullScreen")}
             </button>
             <button className="btn" onClick={() => setWindowPickOpen(true)}>
-              ▣ Uma janela
+              ▣ {t("home.oneWindow")}
             </button>
           </div>
         </div>
         <div className="card">
-          <div className="card-title">Converter em lote</div>
-          <p className="card-hint">
-            Redimensione/converta/comprima vários arquivos de uma vez (PNG/JPG).
-          </p>
+          <div className="card-title">{t("batch.title")}</div>
+          <p className="card-hint">{t("home.batchHint")}</p>
           <button className="btn" onClick={() => setBatchOpen(true)}>
-            Escolher arquivos…
+            {t("home.chooseFiles")}
           </button>
         </div>
       </div>
 
       {captures.length > 0 && (
         <div className="captures">
-          <h2>Capturas recentes</h2>
+          <h2>{t("home.recentCaptures")}</h2>
           <div className="captures-grid">
             {captures.slice(0, 12).map((c) => (
               <div key={c.path} className="capture-card">
@@ -98,7 +94,7 @@ export default function HomeView() {
                   <span>{fmtDate(c.createdMs)}</span>
                   <button
                     className="lib-item-del"
-                    title="Excluir captura"
+                    title={t("home.deleteCapture")}
                     onClick={() => void deleteCapture(c.path)}
                   >
                     ✕

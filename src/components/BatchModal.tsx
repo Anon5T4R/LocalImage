@@ -4,6 +4,7 @@
 import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import * as be from "../lib/backend";
+import { t } from "../lib/i18n";
 import { dirName, fileName, IMAGE_EXTENSIONS } from "../lib/types";
 import { useUi } from "../state/ui";
 
@@ -24,8 +25,8 @@ export default function BatchModal() {
   async function pick() {
     const picked = await open({
       multiple: true,
-      title: "Escolher imagens",
-      filters: [{ name: "Imagens", extensions: IMAGE_EXTENSIONS }],
+      title: t("batch.pickTitle"),
+      filters: [{ name: t("common.imagesFilter"), extensions: IMAGE_EXTENSIONS }],
     }).catch(() => null);
     if (!picked) return;
     setFiles(Array.isArray(picked) ? picked : [picked]);
@@ -50,7 +51,7 @@ export default function BatchModal() {
       }
     }
     setProgress(-1);
-    toast("success", `${ok} de ${files.length} convertida(s), ao lado dos originais.`);
+    toast("success", t("batch.done", { ok, total: files.length }));
     setOpen(false);
     setFiles([]);
   }
@@ -59,23 +60,23 @@ export default function BatchModal() {
     <div className="modal-backdrop" onClick={() => progress < 0 && setOpen(false)}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <h2>Converter em lote</h2>
+          <h2>{t("batch.title")}</h2>
           <button className="icon-btn" onClick={() => setOpen(false)}>
             ✕
           </button>
         </div>
         <div className="form-grid">
-          <label>Arquivos</label>
+          <label>{t("batch.files")}</label>
           <div className="form-inline">
             <button className="btn small" onClick={() => void pick()}>
-              Escolher…
+              {t("batch.choose")}
             </button>
             <span className="card-hint" style={{ margin: 0 }}>
-              {files.length === 0 ? "nenhum escolhido" : `${files.length} imagem(ns)`}
+              {files.length === 0 ? t("batch.noneChosen") : t("batch.imageCount", { n: files.length })}
             </span>
           </div>
 
-          <label>Formato</label>
+          <label>{t("convert.format")}</label>
           <select value={format} onChange={(e) => setFormat(e.target.value as "png" | "jpeg")}>
             <option value="jpeg">JPG</option>
             <option value="png">PNG</option>
@@ -83,7 +84,7 @@ export default function BatchModal() {
 
           {format === "jpeg" && (
             <>
-              <label>Qualidade</label>
+              <label>{t("convert.quality")}</label>
               <div className="crf-row">
                 <input
                   type="range"
@@ -97,11 +98,11 @@ export default function BatchModal() {
             </>
           )}
 
-          <label>Largura máxima</label>
+          <label>{t("convert.maxWidth")}</label>
           <select value={maxWidth} onChange={(e) => setMaxWidth(Number(e.target.value))}>
             {WIDTHS.map((w) => (
               <option key={w} value={w}>
-                {w === 0 ? "Original" : `${w}px`}
+                {w === 0 ? t("convert.original") : `${w}px`}
               </option>
             ))}
           </select>
@@ -121,8 +122,8 @@ export default function BatchModal() {
             onClick={() => void run()}
           >
             {progress >= 0
-              ? `Convertendo ${progress + 1}/${files.length}…`
-              : `Converter ${files.length || ""} imagem(ns)`}
+              ? t("batch.converting", { i: progress + 1, total: files.length })
+              : t("batch.convertN", { n: files.length || "" })}
           </button>
         </div>
       </div>

@@ -8,6 +8,7 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openPath } from "@tauri-apps/plugin-opener";
 import * as be from "../lib/backend";
 import { fitScale, nextZoom } from "../lib/geometry";
+import { t } from "../lib/i18n";
 import { fileName, fmtBytes, isVideoPath, type ExifEntry, type ImageInfo } from "../lib/types";
 import { useStore } from "../state/store";
 import { useUi } from "../state/ui";
@@ -96,7 +97,7 @@ export default function ViewerView() {
     try {
       await openPath(path);
     } catch (e) {
-      toast("error", `Não consegui abrir o vídeo: ${e}`);
+      toast("error", t("viewer.openVideoFailed", { e: String(e) }));
     }
   }
 
@@ -163,14 +164,14 @@ export default function ViewerView() {
     <div className={`viewer${immersive ? " immersive" : ""}`}>
       {!immersive && (
       <div className="viewer-bar">
-        <button className="icon-btn" onClick={goHome} title="Início">
+        <button className="icon-btn" onClick={goHome} title={t("topbar.home")}>
           ←
         </button>
         <span className="viewer-name" title={path}>
           {fileName(path)}
         </span>
         <span className="viewer-meta">
-          {isVideo ? "vídeo" : info && `${info.width}×${info.height} · ${fmtBytes(info.sizeBytes)}`}
+          {isVideo ? t("viewer.video") : info && `${info.width}×${info.height} · ${fmtBytes(info.sizeBytes)}`}
           {files.length > 1 && ` · ${index + 1}/${files.length}`}
         </span>
         <div className="viewer-actions">
@@ -178,68 +179,68 @@ export default function ViewerView() {
             <button
               className="btn small primary"
               onClick={() => void openVideoExternally()}
-              title="Abrir no player padrão (Enter)"
+              title={t("viewer.openInPlayerTitle")}
             >
-              ▶ Abrir vídeo
+              ▶ {t("viewer.openVideo")}
             </button>
           ) : (
           <>
-          <button className="btn small" onClick={() => setZoom(nextZoom(z, -1))} title="Menos zoom (-)">
+          <button className="btn small" onClick={() => setZoom(nextZoom(z, -1))} title={t("viewer.zoomOut")}>
             −
           </button>
           <span className="zoom-label">{Math.round(z * 100)}%</span>
-          <button className="btn small" onClick={() => setZoom(nextZoom(z, 1))} title="Mais zoom (+)">
+          <button className="btn small" onClick={() => setZoom(nextZoom(z, 1))} title={t("viewer.zoomIn")}>
             +
           </button>
-          <button className="btn small" onClick={() => setZoom(0)} title="Ajustar (0)">
-            Ajustar
+          <button className="btn small" onClick={() => setZoom(0)} title={t("viewer.fit")}>
+            {t("viewer.fitLabel")}
           </button>
-          <button className="btn small" onClick={() => setZoom(1)} title="Tamanho real (1)">
+          <button className="btn small" onClick={() => setZoom(1)} title={t("viewer.actualSize")}>
             100%
           </button>
           <button
             className="btn small"
             onClick={() => setRotation((r) => (r + 90) % 360)}
-            title="Girar a visualização (o export gira no editor)"
+            title={t("viewer.rotate")}
           >
             ⟳
           </button>
-          <button className="btn small" onClick={() => void toggleFullscreen()} title="Tela cheia (F)">
+          <button className="btn small" onClick={() => void toggleFullscreen()} title={t("viewer.fullscreen")}>
             ⛶
           </button>
           <button
             className="btn small"
             onClick={() => void setImmersiveMode(true)}
-            title="Modo imersivo — só a imagem (Esc pra sair)"
+            title={t("viewer.immersive")}
           >
             ⤢
           </button>
           <button
             className={`btn small ${showExif ? "primary" : ""}`}
             onClick={() => setShowExif(!showExif)}
-            title="Metadados EXIF (I)"
+            title={t("viewer.exifTitle")}
           >
             EXIF
           </button>
           <button className="btn small" onClick={() => setConvertOpen(true)}>
-            Converter
+            {t("viewer.convert")}
           </button>
-          <button className="btn small primary" onClick={() => openEditor(path)} title="Anotar (E)">
-            ✎ Anotar
+          <button className="btn small primary" onClick={() => openEditor(path)} title={t("viewer.annotateTitle")}>
+            ✎ {t("viewer.annotate")}
           </button>
           </>
           )}
           {confirmDel ? (
             <>
               <button className="btn small danger" onClick={() => void deleteCurrent()}>
-                Lixeira?
+                {t("viewer.trashConfirm")}
               </button>
               <button className="btn small" onClick={() => setConfirmDel(false)}>
-                Não
+                {t("viewer.no")}
               </button>
             </>
           ) : (
-            <button className="icon-btn" onClick={() => setConfirmDel(true)} title="Excluir (Del)">
+            <button className="icon-btn" onClick={() => setConfirmDel(true)} title={t("viewer.delete")}>
               🗑
             </button>
           )}
@@ -262,11 +263,9 @@ export default function ViewerView() {
               {fileName(path)}
             </div>
             <button className="btn primary" onClick={() => void openVideoExternally()}>
-              ▶ Abrir vídeo
+              ▶ {t("viewer.openVideo")}
             </button>
-            <div className="video-ph-hint">
-              O LocalImage não reproduz vídeo — ele abre no player padrão do sistema.
-            </div>
+            <div className="video-ph-hint">{t("viewer.videoPlaceholderHint")}</div>
           </div>
         ) : (
           src && (
@@ -284,9 +283,9 @@ export default function ViewerView() {
         )}
         {showExif && (
           <aside className="exif-panel">
-            <div className="exif-title">Metadados (EXIF)</div>
+            <div className="exif-title">{t("viewer.exifPanelTitle")}</div>
             {exif.length === 0 ? (
-              <div className="exif-empty">Sem EXIF nesta imagem.</div>
+              <div className="exif-empty">{t("viewer.exifEmpty")}</div>
             ) : (
               exif.map((e) => (
                 <div key={e.label} className="exif-row">
@@ -295,14 +294,14 @@ export default function ViewerView() {
                 </div>
               ))
             )}
-            <div className="exif-note">Qualquer export do LocalImage remove o EXIF.</div>
+            <div className="exif-note">{t("viewer.exifNote")}</div>
           </aside>
         )}
         {immersive && (
           <button
             className="immersive-exit"
             onClick={() => void setImmersiveMode(false)}
-            title="Sair do modo imersivo (Esc)"
+            title={t("viewer.immersiveExit")}
           >
             ✕
           </button>

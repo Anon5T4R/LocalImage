@@ -11,6 +11,7 @@ import TopBar from "./components/TopBar";
 import ViewerView from "./components/ViewerView";
 import WindowPickModal from "./components/WindowPickModal";
 import { inTauri } from "./lib/backend";
+import { t } from "./lib/i18n";
 import { isMediaPath } from "./lib/types";
 import { useStore } from "./state/store";
 import { useUi } from "./state/ui";
@@ -50,7 +51,7 @@ export default function App() {
           const any = paths[0];
           if (media) void openPath(media);
           else if (any) void openPath(any); // pode ser uma pasta
-          else toast("error", "Nada reconhecido nos itens soltos.");
+          else toast("error", t("app.dropNothing"));
         }
       })
       .then((fn) => unlisteners.push(fn));
@@ -75,7 +76,7 @@ export default function App() {
       </main>
       {dragging && (
         <div className="drop-overlay">
-          <div className="drop-overlay-inner">Solte a imagem aqui</div>
+          <div className="drop-overlay-inner">{t("app.dropHere")}</div>
         </div>
       )}
       <ConvertModal />

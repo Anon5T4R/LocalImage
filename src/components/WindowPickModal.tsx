@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import * as be from "../lib/backend";
+import { t } from "../lib/i18n";
 import type { WindowInfo } from "../lib/types";
 import { useStore } from "../state/store";
 import { useUi } from "../state/ui";
@@ -24,13 +25,13 @@ export default function WindowPickModal() {
     <div className="modal-backdrop" onClick={() => setOpen(false)}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <h2>Capturar janela</h2>
+          <h2>{t("wpick.title")}</h2>
           <button className="icon-btn" onClick={() => setOpen(false)}>
             ✕
           </button>
         </div>
         {windows.length === 0 ? (
-          <p className="card-hint">Nenhuma janela visível encontrada.</p>
+          <p className="card-hint">{t("wpick.empty")}</p>
         ) : (
           <div className="window-list">
             {windows.map((w) => (

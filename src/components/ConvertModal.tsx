@@ -6,6 +6,7 @@ import { useState } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import * as be from "../lib/backend";
+import { t } from "../lib/i18n";
 import { dirName, fileName, fmtBytes } from "../lib/types";
 import { useStore } from "../state/store";
 import { useUi } from "../state/ui";
@@ -43,7 +44,7 @@ export default function ConvertModal() {
     const stem = fileName(path).replace(/\.[^.]+$/, "");
     const sep = navigator.userAgent.includes("Windows") ? "\\" : "/";
     const out = await save({
-      title: "Salvar como",
+      title: t("convert.saveAsTitle"),
       defaultPath: `${dirName(path)}${sep}${stem} - convertida.${ext}`,
       filters: [{ name: ext.toUpperCase(), extensions: [ext] }],
     }).catch(() => null);
@@ -56,7 +57,7 @@ export default function ConvertModal() {
         const img = new Image();
         await new Promise<void>((resolve, reject) => {
           img.onload = () => resolve();
-          img.onerror = () => reject(new Error("decodificar"));
+          img.onerror = () => reject(new Error(t("convert.decodeFailed")));
           img.src = `data:image/png;base64,${loaded.b64}`;
         });
         const canvas = document.createElement("canvas");
@@ -66,7 +67,7 @@ export default function ConvertModal() {
         const blob: Blob | null = await new Promise((resolve) =>
           canvas.toBlob(resolve, "image/webp", quality / 100),
         );
-        if (!blob) throw new Error("encodar WebP");
+        if (!blob) throw new Error(t("convert.encodeWebpFailed"));
         await be.writeFileBase64(out, await blobToBase64(blob));
       } else {
         await be.convertImage(path, out, format, quality, maxWidth);
@@ -74,7 +75,8 @@ export default function ConvertModal() {
       const info = await be.imageInfo(out).catch(() => null);
       toast(
         "success",
-        `Salvo: ${fileName(out)}${info ? ` (${fmtBytes(info.sizeBytes)})` : ""}`,
+        t("convert.saved", { name: fileName(out) }) +
+          (info ? ` (${fmtBytes(info.sizeBytes)})` : ""),
       );
       void revealItemInDir(out).catch(() => {});
       setOpen(false);
@@ -89,13 +91,13 @@ export default function ConvertModal() {
     <div className="modal-backdrop" onClick={() => setOpen(false)}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <h2>Converter — {fileName(path)}</h2>
+          <h2>{t("convert.title", { name: fileName(path) })}</h2>
           <button className="icon-btn" onClick={() => setOpen(false)}>
             ✕
           </button>
         </div>
         <div className="form-grid">
-          <label>Formato</label>
+          <label>{t("convert.format")}</label>
           <select value={format} onChange={(e) => setFormat(e.target.value as typeof format)}>
             {FORMATS.map((f) => (
               <option key={f} value={f}>
@@ -106,7 +108,7 @@ export default function ConvertModal() {
 
           {lossy && (
             <>
-              <label>Qualidade</label>
+              <label>{t("convert.quality")}</label>
               <div className="crf-row">
                 <input
                   type="range"
@@ -120,21 +122,21 @@ export default function ConvertModal() {
             </>
           )}
 
-          <label>Largura máxima</label>
+          <label>{t("convert.maxWidth")}</label>
           <select value={maxWidth} onChange={(e) => setMaxWidth(Number(e.target.value))}>
             {WIDTHS.map((w) => (
               <option key={w} value={w}>
-                {w === 0 ? "Original" : `${w}px`}
+                {w === 0 ? t("convert.original") : `${w}px`}
               </option>
             ))}
           </select>
         </div>
         <p className="card-hint" style={{ marginTop: 10 }}>
-          O export re-encoda a imagem — metadados EXIF (GPS, câmera, data) são removidos.
+          {t("convert.exifNote")}
         </p>
         <div className="tab-foot">
           <button className="btn primary" disabled={busy} onClick={() => void run()}>
-            {busy ? "Convertendo…" : "Converter…"}
+            {busy ? t("convert.converting") : t("convert.convert")}
           </button>
         </div>
       </div>

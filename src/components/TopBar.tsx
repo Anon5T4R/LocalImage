@@ -1,3 +1,4 @@
+import { t } from "../lib/i18n";
 import { useStore } from "../state/store";
 import { useUi } from "../state/ui";
 
@@ -10,22 +11,22 @@ export default function TopBar() {
 
   return (
     <header className="topbar">
-      <button className="brand" onClick={goHome} title="Início">
+      <button className="brand" onClick={goHome} title={t("topbar.home")}>
         <span className="brand-mark">🖼</span>
         <span className="brand-name">LocalImage</span>
       </button>
       <div className="topbar-actions">
         <button className="btn" onClick={() => void captureScreen()}>
-          ⛶ Capturar
+          ⛶ {t("topbar.capture")}
         </button>
         <button
           className="icon-btn"
           onClick={() => setSettings({ theme: settings.theme === "dark" ? "light" : "dark" })}
-          title={settings.theme === "dark" ? "Tema claro" : "Tema escuro"}
+          title={settings.theme === "dark" ? t("topbar.themeLight") : t("topbar.themeDark")}
         >
           {settings.theme === "dark" ? "☀" : "🌙"}
         </button>
-        <button className="icon-btn" onClick={() => setSettingsOpen(true)} title="Configurações">
+        <button className="icon-btn" onClick={() => setSettingsOpen(true)} title={t("topbar.settings")}>
           ⚙
         </button>
       </div>

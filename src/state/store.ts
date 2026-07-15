@@ -3,6 +3,7 @@
 
 import { create } from "zustand";
 import * as be from "../lib/backend";
+import { t } from "../lib/i18n";
 import { dirName, isMediaPath, type CaptureEntry, type Settings } from "../lib/types";
 import { useUi } from "./ui";
 
@@ -112,7 +113,7 @@ export const useStore = create<Store>((set, get) => ({
       const dir = isFile ? dirName(path) : path;
       const files = await be.listDir(dir);
       if (files.length === 0) {
-        toast("error", "Nenhuma imagem nesta pasta.");
+        toast("error", t("store.noImages"));
         return;
       }
       const index = isFile
@@ -151,7 +152,7 @@ export const useStore = create<Store>((set, get) => ({
       const rest = files.filter((_, i) => i !== index);
       if (rest.length === 0) set({ mode: "home", files: [], index: 0 });
       else set({ files: rest, index: Math.min(index, rest.length - 1) });
-      useUi.getState().toast("success", "Enviado pra lixeira.");
+      useUi.getState().toast("success", t("store.trashed"));
     } catch (e) {
       useUi.getState().toast("error", String(e));
     }
@@ -181,7 +182,7 @@ export const useStore = create<Store>((set, get) => ({
       const monitors = await be.monitorsList();
       const target = monitors.find((m) => m.primary) ?? monitors[0];
       if (!target) {
-        toast("error", "Nenhuma tela encontrada.");
+        toast("error", t("store.noScreen"));
         return;
       }
       const path = await be.captureMonitor(target.id, get().settings.hideSelf);
