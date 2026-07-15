@@ -15,6 +15,7 @@ import { useUi } from "../state/ui";
 
 const COLORS = ["#ef4444", "#f59e0b", "#22c55e", "#3b82f6", "#a855f7", "#111827", "#ffffff"];
 const TOOLS: [Tool, string, string][] = [
+  ["crop", "⬚", "Recortar"],
   ["arrow", "↗", "Seta"],
   ["rect", "▭", "Caixa"],
   ["highlight", "▨", "Realce"],
@@ -22,7 +23,6 @@ const TOOLS: [Tool, string, string][] = [
   ["pen", "✎", "Desenho livre"],
   ["text", "T", "Texto"],
   ["step", "①", "Passo numerado"],
-  ["crop", "⬚", "Recortar"],
 ];
 
 export default function EditorView() {
@@ -34,7 +34,7 @@ export default function EditorView() {
   const [dims, setDims] = useState({ w: 0, h: 0 });
   const [annots, setAnnots] = useState<Annot[]>([]);
   const [redo, setRedo] = useState<Annot[]>([]);
-  const [tool, setTool] = useState<Tool>("arrow");
+  const [tool, setTool] = useState<Tool>("crop");
   const [color, setColor] = useState(COLORS[0]);
   const [stroke, setStroke] = useState(4);
   const [crop, setCrop] = useState<Rect | null>(null);
