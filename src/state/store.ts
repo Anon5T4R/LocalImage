@@ -21,6 +21,21 @@ function loadSettings(): Settings {
   return { theme: dark ? "dark" : "light", shortcut: "", hideSelf: true, autostart: false };
 }
 
+/**
+ * A intenção guardada pro "iniciar com o sistema", ou `null` se o usuário nunca
+ * decidiu (instalação anterior à opção, ou storage limpo) — aí herdamos o que o
+ * SO já tem em vez de ligar/desligar por conta própria.
+ */
+function storedAutostart(): boolean | null {
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    const v = raw ? JSON.parse(raw).autostart : undefined;
+    return typeof v === "boolean" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 export type Mode = "home" | "viewer" | "editor";
 
 interface Store {
@@ -68,13 +83,26 @@ export const useStore = create<Store>((set, get) => ({
     if (accel) {
       be.shortcutSet(accel).catch((e) => useUi.getState().toast("error", String(e)));
     }
-    // Estado real do "iniciar com o sistema" mora no SO — reflete nas settings.
+    // "Iniciar com o sistema": a intenção mora AQUI, o registro do Windows é só
+    // o efeito — e um efeito que se perde sozinho (entrada apagada por um
+    // instalador, ou apontando pro exe antigo depois de uma mudança de lugar).
+    // Reimpor a cada boot é o que conserta isso: antes, o app simplesmente
+    // parava de subir no logon, calado, com a checkbox marcada.
     try {
-      const on = await be.autostartIsEnabled();
-      if (on !== get().settings.autostart) {
-        const settings = { ...get().settings, autostart: on };
+      const os = await be.autostartOsState();
+      const stored = storedAutostart();
+      let want = stored ?? os === "ok";
+      // O Gerenciador de Tarefas vence a checkbox: o usuário desligou na UI
+      // oficial do SO, então a intenção passa a ser essa — senão reimporíamos
+      // todo boot, brigando com ele.
+      if (want && os === "user-disabled") want = false;
+      if (want !== get().settings.autostart) {
+        const settings = { ...get().settings, autostart: want };
         set({ settings });
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      }
+      if ((want && os === "broken") || (!want && os === "ok")) {
+        await be.autostartSet(want);
       }
     } catch {
       /* ignore */

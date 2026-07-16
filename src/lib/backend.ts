@@ -45,7 +45,14 @@ export const writeFileBase64 = (path: string, base64Data: string) =>
 export const uniquePath = (path: string) => cmd<string>("unique_path", { path });
 export const shortcutSet = (accel: string) => cmd<void>("shortcut_set", { accel });
 export const autostartSet = (enable: boolean) => cmd<void>("autostart_set", { enable });
-export const autostartIsEnabled = () => cmd<boolean>("autostart_is_enabled");
+
+/**
+ * O que o registro do Windows tem hoje — não "está ligado?", e sim "precisa
+ * consertar?". `broken` = entrada ausente ou apontando pro exe antigo;
+ * `user-disabled` = desligado no Gerenciador de Tarefas.
+ */
+export type OsAutostart = "ok" | "broken" | "user-disabled";
+export const autostartOsState = () => cmd<OsAutostart>("autostart_os_state");
 
 /** Traz a janela de volta (usada depois de uma captura com o app na bandeja). */
 export async function showMainWindow(): Promise<void> {

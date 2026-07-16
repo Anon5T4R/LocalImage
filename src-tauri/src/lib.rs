@@ -38,16 +38,107 @@ fn shortcut_set(app: tauri::AppHandle, accel: String) -> Result<(), String> {
 fn autostart_set(app: tauri::AppHandle, enable: bool) -> Result<(), String> {
     let m = app.autolaunch();
     if enable {
+        // Apaga antes de gravar pra uma entrada obsoleta (caminho antigo) não
+        // sobreviver. É `let _` de propósito: o `disable()` do auto-launch dá
+        // erro quando não há nada pra apagar, que é justamente o caso comum.
+        let _ = m.disable();
         m.enable().map_err(|e| e.to_string())
     } else {
         m.disable().map_err(|e| e.to_string())
     }
 }
 
-/// Estado atual do "iniciar com o sistema" (fonte da verdade = o SO).
+// --- estado do autostart no SO ---
+//
+// A intenção do usuário mora no store do front (`settings.autostart` no
+// localStorage) — o app não tem banco. O registro do Windows é só o efeito, e um
+// efeito que se perde sozinho: o `is_enabled()` do plugin só checa se a entrada
+// em `...\CurrentVersion\Run` EXISTE, nunca se ela aponta pro exe atual. Se a
+// entrada some (instalador/limpador) ou envelhece (o exe mudou de lugar e ela
+// segue apontando pro antigo), o app para de subir no logon — calado, com a
+// checkbox marcada.
+//
+// Por isso este comando não devolve um bool "ligado?", e sim o que o SO tem hoje
+// do ponto de vista de "precisa consertar?". Quem decide é o front, que é onde a
+// intenção mora (ver `reconcileAutostart` em src/state/store.ts).
+
+#[derive(Debug, PartialEq, serde::Serialize)]
+#[serde(rename_all = "kebab-case")]
+enum OsAutostart {
+    /// Entrada presente e apontando pro exe atual — nada a fazer.
+    Ok,
+    /// Ausente ou apontando pro caminho errado (instalação antiga/movida) —
+    /// é o caso a reimpor.
+    Broken,
+    /// O usuário desligou pelo Gerenciador de Tarefas do Windows. É uma escolha
+    /// explícita dele, na UI oficial do SO: obedecemos e desmarcamos a checkbox.
+    UserDisabled,
+}
+
+/// Espelha o formato que o `auto-launch` grava: `"<exe> <args>"`, sem aspas.
+#[cfg(windows)]
+fn os_autostart(app: &tauri::AppHandle) -> OsAutostart {
+    use winreg::enums::{HKEY_CURRENT_USER, KEY_READ};
+    use winreg::RegKey;
+
+    const RUN: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Run";
+    const APPROVED: &str =
+        r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
+
+    let name = &app.package_info().name;
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+
+    // Override do Gerenciador de Tarefas: 12 bytes = flag (DWORD) + FILETIME de
+    // quando foi desligado. No flag, o bit 0 ligado = desabilitado (2/6 ligado,
+    // 3/7 desligado); quando habilitado, o timestamp fica zerado. Checamos os
+    // dois: o auto-launch só olha o timestamp, o que não enxerga um flag
+    // desligado com timestamp zerado.
+    let approved_off = hkcu
+        .open_subkey_with_flags(APPROVED, KEY_READ)
+        .ok()
+        .and_then(|k| k.get_raw_value(name).ok())
+        .map(|v| {
+            let b = &v.bytes;
+            let flag_off = b.first().map(|f| f & 1 != 0).unwrap_or(false);
+            let stamped_off = b.len() >= 12 && !b[4..12].iter().all(|x| *x == 0);
+            flag_off || stamped_off
+        })
+        .unwrap_or(false);
+    if approved_off {
+        return OsAutostart::UserDisabled;
+    }
+
+    let current = std::env::current_exe()
+        .map(|p| p.display().to_string())
+        .unwrap_or_default();
+    // Só "--hidden": é o que o plugin foi configurado pra gravar (o
+    // "--minimized" do HIDDEN_ARGS é aceito na entrada, mas nunca escrito aqui).
+    let expected = format!("{current} --hidden");
+
+    match hkcu
+        .open_subkey_with_flags(RUN, KEY_READ)
+        .ok()
+        .and_then(|k| k.get_value::<String, _>(name).ok())
+    {
+        Some(v) if v.trim().eq_ignore_ascii_case(expected.trim()) => OsAutostart::Ok,
+        _ => OsAutostart::Broken,
+    }
+}
+
+/// Fora do Windows não há registro pra envelhecer: o `is_enabled()` basta.
+#[cfg(not(windows))]
+fn os_autostart(app: &tauri::AppHandle) -> OsAutostart {
+    if app.autolaunch().is_enabled().unwrap_or(false) {
+        OsAutostart::Ok
+    } else {
+        OsAutostart::Broken
+    }
+}
+
+/// O que o SO tem hoje. O front cruza isso com a intenção guardada.
 #[tauri::command(async)]
-fn autostart_is_enabled(app: tauri::AppHandle) -> Result<bool, String> {
-    app.autolaunch().is_enabled().map_err(|e| e.to_string())
+fn autostart_os_state(app: tauri::AppHandle) -> OsAutostart {
+    os_autostart(&app)
 }
 
 fn open_main(app: &tauri::AppHandle) {
@@ -140,7 +231,7 @@ pub fn run() {
             get_startup_file,
             shortcut_set,
             autostart_set,
-            autostart_is_enabled,
+            autostart_os_state,
             img::list_dir,
             img::image_info,
             img::exif_info,
