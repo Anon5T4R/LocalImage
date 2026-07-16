@@ -53,4 +53,4 @@ jobs:
 
       - name: Rust testes
         working-directory: src-tauri
-        run: cargo test
+        run: cargo test --locked
