@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { LOCALE_LABELS, type Locale, setLocale, t, useLocale } from "../lib/i18n";
+import type { Theme } from "../lib/types";
 import { useStore } from "../state/store";
 import { useUi } from "../state/ui";
 
@@ -84,10 +85,15 @@ export default function SettingsModal() {
           <label>{t("settings.theme")}</label>
           <select
             value={settings.theme}
-            onChange={(e) => setSettings({ theme: e.target.value as "light" | "dark" })}
+            onChange={(e) => setSettings({ theme: e.target.value as Theme })}
           >
             <option value="light">{t("settings.themeLight")}</option>
             <option value="dark">{t("settings.themeDark")}</option>
+            <option value="nature">{t("settings.themeNature")}</option>
+            <option value="darkblue">{t("settings.themeDarkBlue")}</option>
+            <option value="calmgreen">{t("settings.themeCalmGreen")}</option>
+            <option value="pastelpink">{t("settings.themePastelPink")}</option>
+            <option value="punkprincess">{t("settings.themePunkPrincess")}</option>
           </select>
 
           <label>{t("settings.shortcutLabel")}</label>

@@ -36,8 +36,17 @@ export interface CaptureEntry {
   createdMs: number;
 }
 
+export type Theme =
+  | "light"
+  | "dark"
+  | "nature"
+  | "darkblue"
+  | "calmgreen"
+  | "pastelpink"
+  | "punkprincess";
+
 export interface Settings {
-  theme: "light" | "dark";
+  theme: Theme;
   /** Atalho global de captura ("" = desligado). */
   shortcut: string;
   /** Esconder a janela do app antes de capturar a tela. */
