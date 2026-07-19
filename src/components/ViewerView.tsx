@@ -7,11 +7,12 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openPath } from "@tauri-apps/plugin-opener";
 import * as be from "../lib/backend";
-import { clampPan, fitScale, nextZoom } from "../lib/geometry";
+import { nextZoom } from "../lib/geometry";
 import { t } from "../lib/i18n";
 import { fileName, fmtBytes, isVideoPath, type ExifEntry, type ImageInfo } from "../lib/types";
 import { useStore } from "../state/store";
 import { useUi } from "../state/ui";
+import { effectiveZoom as calcZoom, useView } from "../state/view";
 
 export default function ViewerView() {
   const files = useStore((s) => s.files);
@@ -31,20 +32,28 @@ export default function ViewerView() {
   const [info, setInfo] = useState<ImageInfo | null>(null);
   const [exif, setExif] = useState<ExifEntry[]>([]);
   const [showExif, setShowExif] = useState(false);
-  const [zoom, setZoom] = useState(0); // 0 = ajustar
-  const [rotation, setRotation] = useState(0);
-  const [pan, setPan] = useState({ x: 0, y: 0 });
+  // Zoom/rotação/pan vivem no store de view: lá TODA escrita passa pelo clamp
+  // (aqui era estado local com clamp espalhado nos handlers — e cada caminho
+  // esquecido deixava a imagem sair inteira da tela).
+  const zoom = useView((s) => s.zoom);
+  const rotation = useView((s) => s.rotation);
+  const pan = useView((s) => s.pan);
+  // Assinados porque o zoom "ajustar" depende deles: sem isto, redimensionar a
+  // janela não redesenhava a imagem na nova escala.
+  const viewSize = useView((s) => s.view);
+  const imgSize = useView((s) => s.img);
   const [fallbackSrc, setFallbackSrc] = useState("");
   const [confirmDel, setConfirmDel] = useState(false);
   const areaRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
 
-  // Reset por imagem + metadados.
+  // Reset por imagem + metadados. O reset zera também o bitmap medido: até o
+  // onLoad da nova imagem não há como clampar, e o store trava o pan no centro
+  // (antes, um arrasto em curso durante ←/→ escrevia pan cru na imagem nova).
   useEffect(() => {
-    setZoom(0);
-    setRotation(0);
-    setPan({ x: 0, y: 0 });
+    useView.getState().reset();
+    dragRef.current = null;
     setFallbackSrc("");
     setConfirmDel(false);
     setInfo(null);
@@ -54,59 +63,44 @@ export default function ViewerView() {
     be.exifInfo(path).then(setExif).catch(() => {});
   }, [path]);
 
-  const effectiveZoom = useCallback((): number => {
-    if (zoom > 0) return zoom;
+  // Ponte de DEV (nunca em produção): estado legível + src injetável pra
+  // dirigir o GUI em testes sem o runtime Tauri. Reatribuída a cada render
+  // de propósito — o closure precisa ver o estado corrente.
+  if (import.meta.env.DEV) {
+    (globalThis as unknown as Record<string, unknown>).__liViewer = {
+      get: () => {
+        const s = useView.getState();
+        return { pan: s.pan, zoom: s.zoom, rotation: s.rotation, view: s.view, img: s.img };
+      },
+      setSrc: setFallbackSrc,
+      view: useView,
+    };
+  }
+
+  // O viewport medido é entrada do clamp: sem isto, encolher a área (sair do
+  // fullscreen/imersivo, restaurar a janela) mantinha um pan que era legal na
+  // área grande e joga a imagem inteira pra fora da pequena.
+  useEffect(() => {
     const area = areaRef.current;
-    if (!area || !info) return 1;
-    const swap = rotation % 180 !== 0;
-    const iw = swap ? info.height : info.width;
-    const ih = swap ? info.width : info.height;
-    return fitScale(iw, ih, area.clientWidth - 24, area.clientHeight - 24);
-  }, [zoom, info, rotation]);
+    if (!area) return;
+    const push = () => useView.getState().setViewSize(area.clientWidth, area.clientHeight);
+    push();
+    const obs = new ResizeObserver(push);
+    obs.observe(area);
+    return () => obs.disconnect();
+  }, [isVideo]);
 
-  /** Tamanho da imagem em px de tela num dado zoom (rotação inclusa). */
-  const scaledDims = useCallback(
-    (z: number): { w: number; h: number } | null => {
-      const img = imgRef.current;
-      // O bitmap de verdade (fallback TIFF pode vir menor que o info do Rust).
-      const nw = img && img.naturalWidth > 0 ? img.naturalWidth : info?.width ?? 0;
-      const nh = img && img.naturalHeight > 0 ? img.naturalHeight : info?.height ?? 0;
-      if (nw <= 0 || nh <= 0) return null;
-      const swap = rotation % 180 !== 0;
-      return { w: (swap ? nh : nw) * z, h: (swap ? nw : nh) * z };
-    },
-    [info, rotation],
-  );
+  const effectiveZoom = useCallback(() => calcZoom(useView.getState()), []);
 
-  /** Clamp do pan: nunca deixa a imagem 100% fora da tela (≥64px visíveis). */
-  const clampedPan = useCallback(
-    (p: { x: number; y: number }, z: number): { x: number; y: number } => {
-      const area = areaRef.current;
-      const d = scaledDims(z);
-      if (!area || !d) return p;
-      return clampPan(p, d.w, d.h, area.clientWidth, area.clientHeight);
-    },
-    [scaledDims],
-  );
+  const applyZoom = useCallback((nz: number, anchor?: { ax: number; ay: number }) => {
+    useView.getState().zoomTo(nz, anchor);
+  }, []);
 
-  /** Muda o zoom mantendo o ponto sob a âncora (cursor ou centro) parado. */
-  const applyZoom = useCallback(
-    (nz: number, anchor?: { ax: number; ay: number }) => {
-      if (nz <= 0) {
-        // "Ajustar" re-enquadra de verdade: zoom fit + centrada.
-        setZoom(0);
-        setPan({ x: 0, y: 0 });
-        return;
-      }
-      const cur = effectiveZoom() || 1;
-      const k = nz / cur;
-      const ax = anchor?.ax ?? 0;
-      const ay = anchor?.ay ?? 0;
-      setPan((p) => clampedPan({ x: ax - (ax - p.x) * k, y: ay - (ay - p.y) * k }, nz));
-      setZoom(nz);
-    },
-    [effectiveZoom, clampedPan],
-  );
+  /** Bitmap decodificado: só aqui o clamp passa a ter medida real. */
+  function onImgLoad() {
+    const img = imgRef.current;
+    if (img) useView.getState().setImgSize(img.naturalWidth, img.naturalHeight);
+  }
 
   function onWheel(e: React.WheelEvent) {
     if (!e.ctrlKey) return;
@@ -139,12 +133,7 @@ export default function ViewerView() {
   function onPointerMove(e: React.PointerEvent) {
     const d = dragRef.current;
     if (!d) return;
-    setPan(
-      clampedPan(
-        { x: d.px + (e.clientX - d.x), y: d.py + (e.clientY - d.y) },
-        effectiveZoom(),
-      ),
-    );
+    useView.getState().panTo(d.px + (e.clientX - d.x), d.py + (e.clientY - d.y));
   }
   function onPointerUp() {
     dragRef.current = null;
@@ -214,12 +203,6 @@ export default function ViewerView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step, effectiveZoom, applyZoom, openEditor, path, immersive, isVideo]);
 
-  // Rotação gira o bounding box — re-clampa o pan pra imagem não sumir.
-  useEffect(() => {
-    setPan((p) => clampedPan(p, effectiveZoom()));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rotation]);
-
   // Formato que o webview não decodifica (ex.: TIFF) → fallback via Rust.
   async function onImgError() {
     try {
@@ -230,7 +213,7 @@ export default function ViewerView() {
     }
   }
 
-  const z = effectiveZoom();
+  const z = calcZoom({ zoom, rotation, view: viewSize, img: imgSize });
   const src = fallbackSrc || (path ? convertFileSrc(path) : "");
 
   return (
@@ -273,7 +256,7 @@ export default function ViewerView() {
           </button>
           <button
             className="btn small"
-            onClick={() => setRotation((r) => (r + 90) % 360)}
+            onClick={() => useView.getState().rotateCw()}
             title={t("viewer.rotate")}
           >
             ⟳
@@ -348,6 +331,7 @@ export default function ViewerView() {
               src={src}
               alt=""
               draggable={false}
+              onLoad={onImgLoad}
               onError={() => void onImgError()}
               style={{
                 transform: `translate(${pan.x}px, ${pan.y}px) rotate(${rotation}deg) scale(${z})`,
