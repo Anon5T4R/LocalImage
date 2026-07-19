@@ -122,6 +122,10 @@ async function getWorker(langs: string, onProgress?: (p: OcrProgress) => void): 
   }
   worker = await createWorker(langs.split("+"), 1, {
     workerPath: "/tesseract/worker.min.js",
+    // corePath é DIRETÓRIO de propósito. Apontar pra um arquivo faz o
+    // getCore.js do tesseract.js usá-lo cru e congelar a variante; como
+    // diretório, ele detecta relaxedsimd/simd em runtime e escolhe entre as 3
+    // que o fetch-tessdata copiou — o CPU do usuário decide, não a gente.
     corePath: "/tesseract/core",
     langPath: "/tesseract/lang",
     gzip: false,

@@ -21,7 +21,21 @@ mkdir -p "$dest/lang" "$dest/core"
 
 # Só as variantes LSTM (o tesseract.js usa OEM LSTM_ONLY; as "full" dobram o tamanho)
 cp "$root/node_modules/tesseract.js/dist/worker.min.js" "$dest/"
-cp "$root"/node_modules/tesseract.js-core/tesseract-core*lstm* "$dest/core/"
+
+# ---------------------------------------------------------------------------
+# SÓ OS `.wasm.js` (2026-07-19) — ver o comentário longo no fetch-tessdata.ps1.
+#
+# Resumo: o core publica `X.js`+`X.wasm` (arquivo separado) E `X.wasm.js` (mesmo
+# módulo em base64 — NÃO é asm.js). O getCore.js do tesseract.js, com corePath
+# de diretório, só monta nome terminado em `.wasm.js`; a outra forma nunca é
+# pedida. As 3 variantes `.wasm.js` ficam porque a escolha relaxedsimd/simd/
+# plana é feita em runtime por wasm-feature-detect.
+# ---------------------------------------------------------------------------
+cp "$root"/node_modules/tesseract.js-core/tesseract-core*lstm*.wasm.js "$dest/core/"
+
+# Higiene: instalação antiga deixou os .wasm/.js soltos em public/ (gitignored,
+# então `git clean` não pega) e eles seguiriam entrando no dist.
+find "$dest/core" -name 'tesseract-core*' ! -name '*.wasm.js' -delete
 
 for l in por eng; do
   out="$dest/lang/$l.traineddata"

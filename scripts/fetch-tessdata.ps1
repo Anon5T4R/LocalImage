@@ -36,7 +36,35 @@ New-Item -ItemType Directory -Force -Path $core | Out-Null
 
 # Só as variantes LSTM (o tesseract.js usa OEM LSTM_ONLY; as "full" dobram o tamanho)
 Copy-Item (Join-Path $root "node_modules\tesseract.js\dist\worker.min.js") $dest -Force
-Copy-Item (Join-Path $root "node_modules\tesseract.js-core\tesseract-core*lstm*") $core -Force
+
+# ---------------------------------------------------------------------------
+# SÓ OS `.wasm.js` (2026-07-19) — o resto do core era peso morto.
+#
+# O tesseract.js-core publica DUAS formas de cada variante, e o nome engana:
+#   tesseract-core-X.js       (~89 KB) — glue que faz locateFile("...X.wasm")
+#   tesseract-core-X.wasm     (~2,9 MB) — o módulo, em arquivo separado
+#   tesseract-core-X.wasm.js  (~3,9 MB) — MESMO módulo embutido em base64
+#
+# Nenhuma delas é asm.js (verificado: a linha gigante do `.wasm.js` começa em
+# "AGFzbQEAAAA", que é base64 de \0asm\1\0\0\0 — a magic do WebAssembly).
+#
+# O que decide é `tesseract.js/src/worker-script/browser/getCore.js`: quando o
+# corePath é um DIRETÓRIO, ele monta o nome do arquivo e SEMPRE termina em
+# `.wasm.js`. A forma `.js`+`.wasm` nunca é pedida no browser — os 3 `.wasm`
+# (8,6 MB) e os 3 `.js` (267 KB) eram baixados, empacotados e nunca lidos.
+#
+# As 3 variantes `.wasm.js` FICAM: o mesmo getCore.js escolhe em runtime entre
+# relaxedsimd > simd > plana via wasm-feature-detect, e o WebView2/WebKitGTK de
+# cada máquina cai em uma delas. Cortar uma seria apostar no CPU do usuário.
+# ---------------------------------------------------------------------------
+Copy-Item (Join-Path $root "node_modules\tesseract.js-core\tesseract-core*lstm*.wasm.js") $core -Force
+
+# Higiene: instalação antiga deixou os .wasm/.js soltos em public/ (gitignored,
+# então `git clean` não pega). Sem isso o corte não aparece no dist de quem já
+# rodou o script antes.
+Get-ChildItem -Path $core -Filter "tesseract-core*" |
+    Where-Object { $_.Name -notlike "*.wasm.js" } |
+    Remove-Item -Force
 
 foreach ($l in @("por", "eng")) {
     $out = Join-Path $lang "$l.traineddata"
