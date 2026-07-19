@@ -42,6 +42,8 @@ export default function EditorView() {
   const [pendingText, setPendingText] = useState<{ x: number; y: number } | null>(null);
   const [textValue, setTextValue] = useState("");
   const [saving, setSaving] = useState(false);
+  // Voltar com anotações não salvas descartaria tudo calado — pede confirmação.
+  const [confirmClose, setConfirmClose] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -57,6 +59,7 @@ export default function EditorView() {
     setAnnots([]);
     setRedo([]);
     setCrop(null);
+    setConfirmClose(false);
     be.loadPngBase64(editorPath, 6000)
       .then((loaded) => {
         if (!alive) return;
@@ -257,6 +260,7 @@ export default function EditorView() {
         e.preventDefault();
         redoOne();
       } else if (e.key === "Escape") {
+        setConfirmClose(false);
         setCrop(null);
       }
     }
@@ -342,9 +346,24 @@ export default function EditorView() {
   return (
     <div className="editor">
       <div className="editor-bar">
-        <button className="icon-btn" onClick={closeEditor} title={t("editor.back")}>
-          ←
-        </button>
+        {confirmClose ? (
+          <>
+            <button className="btn small danger" onClick={closeEditor}>
+              {t("editor.discardConfirm")}
+            </button>
+            <button className="btn small" onClick={() => setConfirmClose(false)}>
+              {t("viewer.no")}
+            </button>
+          </>
+        ) : (
+          <button
+            className="icon-btn"
+            onClick={() => (annots.length > 0 ? setConfirmClose(true) : closeEditor())}
+            title={t("editor.back")}
+          >
+            ←
+          </button>
+        )}
         <span className="viewer-name" title={editorPath}>
           {fileName(editorPath)}
         </span>

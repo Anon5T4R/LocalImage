@@ -35,6 +35,32 @@ export function clampRect(r: Rect, w: number, h: number): Rect {
   };
 }
 
+/**
+ * Limita o pan do visualizador pra imagem nunca sumir da tela: pelo menos
+ * `minVisible` px (ou a imagem inteira, se menor) ficam dentro do viewport em
+ * cada eixo. Convenção: imagem centrada no viewport e transladada por `pan`
+ * (px de tela), com `imgW`/`imgH` já escalados (e girados, se for o caso).
+ */
+export function clampPan(
+  pan: { x: number; y: number },
+  imgW: number,
+  imgH: number,
+  viewW: number,
+  viewH: number,
+  minVisible = 64,
+): { x: number; y: number } {
+  if (imgW <= 0 || imgH <= 0 || viewW <= 0 || viewH <= 0) return { x: 0, y: 0 };
+  const mx = Math.min(minVisible, imgW, viewW);
+  const my = Math.min(minVisible, imgH, viewH);
+  // Centro da imagem = centro do viewport + pan; borda visível ⇔ |pan| ≤ (view+img)/2 − m.
+  const maxX = (viewW + imgW) / 2 - mx;
+  const maxY = (viewH + imgH) / 2 - my;
+  return {
+    x: Math.max(-maxX, Math.min(pan.x, maxX)),
+    y: Math.max(-maxY, Math.min(pan.y, maxY)),
+  };
+}
+
 /** Índice circular da navegação ←/→. */
 export function stepIndex(index: number, delta: number, length: number): number {
   if (length <= 0) return 0;

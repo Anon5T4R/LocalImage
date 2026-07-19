@@ -7,7 +7,7 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openPath } from "@tauri-apps/plugin-opener";
 import * as be from "../lib/backend";
-import { fitScale, nextZoom } from "../lib/geometry";
+import { clampPan, fitScale, nextZoom } from "../lib/geometry";
 import { t } from "../lib/i18n";
 import { fileName, fmtBytes, isVideoPath, type ExifEntry, type ImageInfo } from "../lib/types";
 import { useStore } from "../state/store";
@@ -37,6 +37,7 @@ export default function ViewerView() {
   const [fallbackSrc, setFallbackSrc] = useState("");
   const [confirmDel, setConfirmDel] = useState(false);
   const areaRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
 
   // Reset por imagem + metadados.
@@ -63,11 +64,67 @@ export default function ViewerView() {
     return fitScale(iw, ih, area.clientWidth - 24, area.clientHeight - 24);
   }, [zoom, info, rotation]);
 
+  /** Tamanho da imagem em px de tela num dado zoom (rotação inclusa). */
+  const scaledDims = useCallback(
+    (z: number): { w: number; h: number } | null => {
+      const img = imgRef.current;
+      // O bitmap de verdade (fallback TIFF pode vir menor que o info do Rust).
+      const nw = img && img.naturalWidth > 0 ? img.naturalWidth : info?.width ?? 0;
+      const nh = img && img.naturalHeight > 0 ? img.naturalHeight : info?.height ?? 0;
+      if (nw <= 0 || nh <= 0) return null;
+      const swap = rotation % 180 !== 0;
+      return { w: (swap ? nh : nw) * z, h: (swap ? nw : nh) * z };
+    },
+    [info, rotation],
+  );
+
+  /** Clamp do pan: nunca deixa a imagem 100% fora da tela (≥64px visíveis). */
+  const clampedPan = useCallback(
+    (p: { x: number; y: number }, z: number): { x: number; y: number } => {
+      const area = areaRef.current;
+      const d = scaledDims(z);
+      if (!area || !d) return p;
+      return clampPan(p, d.w, d.h, area.clientWidth, area.clientHeight);
+    },
+    [scaledDims],
+  );
+
+  /** Muda o zoom mantendo o ponto sob a âncora (cursor ou centro) parado. */
+  const applyZoom = useCallback(
+    (nz: number, anchor?: { ax: number; ay: number }) => {
+      if (nz <= 0) {
+        // "Ajustar" re-enquadra de verdade: zoom fit + centrada.
+        setZoom(0);
+        setPan({ x: 0, y: 0 });
+        return;
+      }
+      const cur = effectiveZoom() || 1;
+      const k = nz / cur;
+      const ax = anchor?.ax ?? 0;
+      const ay = anchor?.ay ?? 0;
+      setPan((p) => clampedPan({ x: ax - (ax - p.x) * k, y: ay - (ay - p.y) * k }, nz));
+      setZoom(nz);
+    },
+    [effectiveZoom, clampedPan],
+  );
+
   function onWheel(e: React.WheelEvent) {
     if (!e.ctrlKey) return;
     e.preventDefault();
     const cur = effectiveZoom();
-    setZoom(nextZoom(cur, e.deltaY < 0 ? 1 : -1));
+    const nz = nextZoom(cur, e.deltaY < 0 ? 1 : -1);
+    if (nz === cur) return;
+    // Âncora no cursor, em coordenadas relativas ao centro do viewport.
+    const area = areaRef.current;
+    if (area) {
+      const r = area.getBoundingClientRect();
+      applyZoom(nz, {
+        ax: e.clientX - r.left - r.width / 2,
+        ay: e.clientY - r.top - r.height / 2,
+      });
+    } else {
+      applyZoom(nz);
+    }
   }
 
   function onPointerDown(e: React.PointerEvent) {
@@ -82,7 +139,12 @@ export default function ViewerView() {
   function onPointerMove(e: React.PointerEvent) {
     const d = dragRef.current;
     if (!d) return;
-    setPan({ x: d.px + (e.clientX - d.x), y: d.py + (e.clientY - d.y) });
+    setPan(
+      clampedPan(
+        { x: d.px + (e.clientX - d.x), y: d.py + (e.clientY - d.y) },
+        effectiveZoom(),
+      ),
+    );
   }
   function onPointerUp() {
     dragRef.current = null;
@@ -134,10 +196,10 @@ export default function ViewerView() {
       else if (isVideo) {
         // Em vídeo, o resto dos atalhos de imagem não se aplica.
         if (e.key === "Enter") void openVideoExternally();
-      } else if (e.key === "+" || e.key === "=") setZoom(nextZoom(effectiveZoom(), 1));
-      else if (e.key === "-") setZoom(nextZoom(effectiveZoom(), -1));
-      else if (e.key === "0") setZoom(0);
-      else if (e.key === "1") setZoom(1);
+      } else if (e.key === "+" || e.key === "=") applyZoom(nextZoom(effectiveZoom(), 1));
+      else if (e.key === "-") applyZoom(nextZoom(effectiveZoom(), -1));
+      else if (e.key === "0") applyZoom(0);
+      else if (e.key === "1") applyZoom(1);
       else if (e.key.toLowerCase() === "f") void toggleFullscreen();
       else if (e.key.toLowerCase() === "e") openEditor(path);
       else if (e.key.toLowerCase() === "i") setShowExif((v) => !v);
@@ -150,7 +212,13 @@ export default function ViewerView() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, effectiveZoom, openEditor, path, immersive, isVideo]);
+  }, [step, effectiveZoom, applyZoom, openEditor, path, immersive, isVideo]);
+
+  // Rotação gira o bounding box — re-clampa o pan pra imagem não sumir.
+  useEffect(() => {
+    setPan((p) => clampedPan(p, effectiveZoom()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rotation]);
 
   // Formato que o webview não decodifica (ex.: TIFF) → fallback via Rust.
   async function onImgError() {
@@ -190,17 +258,17 @@ export default function ViewerView() {
             </button>
           ) : (
           <>
-          <button className="btn small" onClick={() => setZoom(nextZoom(z, -1))} title={t("viewer.zoomOut")}>
+          <button className="btn small" onClick={() => applyZoom(nextZoom(z, -1))} title={t("viewer.zoomOut")}>
             −
           </button>
           <span className="zoom-label">{Math.round(z * 100)}%</span>
-          <button className="btn small" onClick={() => setZoom(nextZoom(z, 1))} title={t("viewer.zoomIn")}>
+          <button className="btn small" onClick={() => applyZoom(nextZoom(z, 1))} title={t("viewer.zoomIn")}>
             +
           </button>
-          <button className="btn small" onClick={() => setZoom(0)} title={t("viewer.fit")}>
+          <button className="btn small" onClick={() => applyZoom(0)} title={t("viewer.fit")}>
             {t("viewer.fitLabel")}
           </button>
-          <button className="btn small" onClick={() => setZoom(1)} title={t("viewer.actualSize")}>
+          <button className="btn small" onClick={() => applyZoom(1)} title={t("viewer.actualSize")}>
             100%
           </button>
           <button
@@ -275,6 +343,7 @@ export default function ViewerView() {
         ) : (
           src && (
             <img
+              ref={imgRef}
               className="viewer-img"
               src={src}
               alt=""

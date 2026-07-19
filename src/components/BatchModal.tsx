@@ -61,7 +61,7 @@ export default function BatchModal() {
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <h2>{t("batch.title")}</h2>
-          <button className="icon-btn" onClick={() => setOpen(false)}>
+          <button className="icon-btn" disabled={progress >= 0} onClick={() => setOpen(false)}>
             ✕
           </button>
         </div>

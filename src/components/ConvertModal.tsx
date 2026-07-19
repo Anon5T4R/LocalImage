@@ -88,11 +88,11 @@ export default function ConvertModal() {
   }
 
   return (
-    <div className="modal-backdrop" onClick={() => setOpen(false)}>
+    <div className="modal-backdrop" onClick={() => !busy && setOpen(false)}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <h2>{t("convert.title", { name: fileName(path) })}</h2>
-          <button className="icon-btn" onClick={() => setOpen(false)}>
+          <button className="icon-btn" disabled={busy} onClick={() => setOpen(false)}>
             ✕
           </button>
         </div>
