@@ -140,7 +140,13 @@ export default function EditorView() {
       setTextValue("");
       return;
     }
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    // Captura blindada: com pointer não-ativo (evento sintético, caneta em
+    // transição) o setPointerCapture lança NotFoundError e mataria o gesto.
+    try {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* sem captura: o traço segue, só perde o "seguir fora da janela" */
+    }
     if (tool === "crop") {
       cropDraftRef.current = p;
       setCrop({ x: p.x, y: p.y, w: 0, h: 0 });

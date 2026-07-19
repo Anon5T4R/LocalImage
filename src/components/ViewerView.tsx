@@ -72,7 +72,12 @@ export default function ViewerView() {
 
   function onPointerDown(e: React.PointerEvent) {
     dragRef.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    // Blindada: NotFoundError com pointer não-ativo mataria o pan inteiro.
+    try {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      /* segue sem captura */
+    }
   }
   function onPointerMove(e: React.PointerEvent) {
     const d = dragRef.current;
