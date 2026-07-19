@@ -17,7 +17,7 @@ export interface Dims {
 /** Respiro visual do modo "ajustar" (px descontados do viewport). */
 export const FIT_PAD = 24;
 
-interface ViewState {
+export interface ViewState {
   zoom: number; // 0 = ajustar
   rotation: number; // múltiplos de 90 — só visualização
   pan: { x: number; y: number }; // px de tela; imagem centrada no viewport + pan

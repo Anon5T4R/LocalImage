@@ -1,3 +1,5 @@
+import type { WallpaperFit } from "./geometry";
+
 export interface ImageInfo {
   width: number;
   height: number;
@@ -47,6 +49,8 @@ export type Theme =
 
 export interface Settings {
   theme: Theme;
+  /** Ajuste do modo papel de parede (imersivo); "free" = zoom/arrasto normais. */
+  wallpaperFit: WallpaperFit;
   /** Atalho global de captura ("" = desligado). */
   shortcut: string;
   /** Esconder a janela do app antes de capturar a tela. */

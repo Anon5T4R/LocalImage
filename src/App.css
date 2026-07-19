@@ -486,6 +486,42 @@ input[type="checkbox"] {
 .viewer.immersive .viewer-area {
   background: #0b0d10;
 }
+/* papel de parede: a imagem encosta nas bordas — sombra e transição de zoom
+   entregariam que ali tem um <img>, e não um fundo de tela */
+.viewer-img.wallpaper {
+  box-shadow: none;
+  transition: none;
+}
+.wallpaper-tile {
+  position: absolute;
+  inset: 0;
+  background-repeat: repeat;
+  background-position: 0 0;
+}
+.viewer.wallpaper-mode .viewer-area {
+  cursor: default; /* sem pan aqui: a mãozinha prometeria um arrasto que não existe */
+  background: #0b0d10; /* xadrez de transparência é cromo — some no papel de parede */
+}
+.wallpaper-bar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 30;
+  opacity: 0.12;
+  transition: opacity 0.15s;
+}
+.wallpaper-bar:hover,
+.wallpaper-bar:focus-within {
+  opacity: 1;
+}
+.wallpaper-fit {
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 12.5px;
+}
 .immersive-exit {
   position: absolute;
   top: 12px;

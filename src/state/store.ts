@@ -13,12 +13,25 @@ function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw)
-      return { theme: "light", shortcut: "", hideSelf: true, autostart: false, ...JSON.parse(raw) };
+      return {
+        theme: "light",
+        shortcut: "",
+        hideSelf: true,
+        autostart: false,
+        wallpaperFit: "cover",
+        ...JSON.parse(raw),
+      };
   } catch {
     /* defaults */
   }
   const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  return { theme: dark ? "dark" : "light", shortcut: "", hideSelf: true, autostart: false };
+  return {
+    theme: dark ? "dark" : "light",
+    shortcut: "",
+    hideSelf: true,
+    autostart: false,
+    wallpaperFit: "cover",
+  };
 }
 
 /**

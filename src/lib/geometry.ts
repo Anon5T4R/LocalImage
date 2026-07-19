@@ -61,6 +61,90 @@ export function clampPan(
   };
 }
 
+/**
+ * Ajuste do modo papel de parede. `free` não é um ajuste — é a visualização
+ * normal (zoom/arrasto pelo store de view); os outros cinco são os do Windows.
+ */
+export type WallpaperFit = "free" | "cover" | "contain" | "stretch" | "center" | "tile";
+
+export const WALLPAPER_FITS: WallpaperFit[] = [
+  "free",
+  "cover",
+  "contain",
+  "stretch",
+  "center",
+  "tile",
+];
+
+export interface WallpaperLayout {
+  /** Escala em cada eixo de TELA (só `stretch` difere entre os dois). */
+  scaleX: number;
+  scaleY: number;
+  /** px da imagem escalada que sobram fora do viewport (soma dos dois lados). */
+  overflowX: number;
+  overflowY: number;
+  /** px de viewport que a imagem NÃO cobre (soma dos dois lados). */
+  barX: number;
+  barY: number;
+  /** `tile`: as barras são preenchidas por cópias, não por fundo vazio. */
+  repeat: boolean;
+}
+
+const IDENTITY: WallpaperLayout = {
+  scaleX: 1,
+  scaleY: 1,
+  overflowX: 0,
+  overflowY: 0,
+  barX: 0,
+  barY: 0,
+  repeat: false,
+};
+
+/**
+ * Geometria do papel de parede: dado o viewport e o bitmap (JÁ girado, se for o
+ * caso), quanto a imagem escala em cada eixo e o que sobra/falta. Ao contrário
+ * do `fitScale` (que nunca amplia — é o "ajustar" do visualizador), aqui
+ * `cover`/`contain` AMPLIAM: papel de parede preenche a tela, é o ponto dele.
+ * Função pura de propósito — o modo não escreve zoom/pan, então não existe um
+ * segundo caminho de escrita concorrendo com o store de view.
+ */
+export function wallpaperLayout(
+  fit: Exclude<WallpaperFit, "free">,
+  imgW: number,
+  imgH: number,
+  viewW: number,
+  viewH: number,
+): WallpaperLayout {
+  if (imgW <= 0 || imgH <= 0 || viewW <= 0 || viewH <= 0) return IDENTITY;
+  let sx: number;
+  let sy: number;
+  switch (fit) {
+    case "cover":
+      sx = sy = Math.max(viewW / imgW, viewH / imgH);
+      break;
+    case "contain":
+      sx = sy = Math.min(viewW / imgW, viewH / imgH);
+      break;
+    case "stretch":
+      sx = viewW / imgW;
+      sy = viewH / imgH;
+      break;
+    default: // center e tile: 1:1, sem escalar
+      sx = sy = 1;
+  }
+  const dw = imgW * sx;
+  const dh = imgH * sy;
+  return {
+    scaleX: sx,
+    scaleY: sy,
+    overflowX: Math.max(0, dw - viewW),
+    overflowY: Math.max(0, dh - viewH),
+    barX: Math.max(0, viewW - dw),
+    barY: Math.max(0, viewH - dh),
+    repeat: fit === "tile",
+  };
+}
+
 /** Índice circular da navegação ←/→. */
 export function stepIndex(index: number, delta: number, length: number): number {
   if (length <= 0) return 0;

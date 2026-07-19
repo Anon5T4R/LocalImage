@@ -1,18 +1,53 @@
 // Visualizador: zoom (Ctrl+roda nos passos, ajustar/100%), pan por arrasto,
 // setas ←/→ navegam a pasta, tira de miniaturas, EXIF, lixeira, fullscreen.
 // Rotação aqui é SÓ de visualização (girar de verdade = exportar no editor).
+// O modo imersivo é também o "papel de parede": tela cheia sem cromo, com os
+// ajustes do Windows (preencher/ajustar/esticar/centralizar/lado a lado) e as
+// mesmas setas navegando a pasta.
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { openPath } from "@tauri-apps/plugin-opener";
 import * as be from "../lib/backend";
-import { nextZoom } from "../lib/geometry";
-import { t } from "../lib/i18n";
+import {
+  nextZoom,
+  stepIndex,
+  WALLPAPER_FITS,
+  wallpaperLayout,
+  type WallpaperFit,
+} from "../lib/geometry";
+import { t, type MessageKey } from "../lib/i18n";
 import { fileName, fmtBytes, isVideoPath, type ExifEntry, type ImageInfo } from "../lib/types";
 import { useStore } from "../state/store";
 import { useUi } from "../state/ui";
-import { effectiveZoom as calcZoom, useView } from "../state/view";
+import { effectiveZoom as calcZoom, useView, type ViewState } from "../state/view";
+
+const FIT_LABELS: Record<WallpaperFit, MessageKey> = {
+  free: "viewer.fitFree",
+  cover: "viewer.fitCover",
+  contain: "viewer.fitContain",
+  stretch: "viewer.fitStretch",
+  center: "viewer.fitCenter",
+  tile: "viewer.fitTile",
+};
+
+/**
+ * Layout do papel de parede a partir do estado de view. Render e ponte de DEV
+ * chamam ESTE helper (nada de recalcular por fora): a geometria raciocina em
+ * eixos de TELA, então o bitmap entra já girado — 90/270 trocam w/h.
+ */
+function layoutFor(fit: WallpaperFit, v: Pick<ViewState, "rotation" | "img" | "view">) {
+  if (fit === "free") return null;
+  const swap = v.rotation % 180 !== 0;
+  return wallpaperLayout(
+    fit,
+    swap ? v.img.h : v.img.w,
+    swap ? v.img.w : v.img.h,
+    v.view.w,
+    v.view.h,
+  );
+}
 
 export default function ViewerView() {
   const files = useStore((s) => s.files);
@@ -22,6 +57,8 @@ export default function ViewerView() {
   const goHome = useStore((s) => s.goHome);
   const openEditor = useStore((s) => s.openEditor);
   const deleteCurrent = useStore((s) => s.deleteCurrent);
+  const fit = useStore((s) => s.settings.wallpaperFit);
+  const setSettings = useStore((s) => s.setSettings);
   const setConvertOpen = useUi((s) => s.setConvertOpen);
   const immersive = useUi((s) => s.immersive);
   const setImmersive = useUi((s) => s.setImmersive);
@@ -48,6 +85,12 @@ export default function ViewerView() {
   const imgRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null);
 
+  // Papel de parede ligado: imersivo, imagem (vídeo não é decodificado aqui) e
+  // um ajuste que não seja "livre". Aqui o layout vem da geometria pura e
+  // zoom/pan ficam DESLIGADOS — arrastar sob um layout que ignora o pan
+  // escreveria no store um deslocamento invisível, que reapareceria ao sair.
+  const wallpaper = immersive && !isVideo && fit !== "free";
+
   // Reset por imagem + metadados. O reset zera também o bitmap medido: até o
   // onLoad da nova imagem não há como clampar, e o store trava o pan no centro
   // (antes, um arrasto em curso durante ←/→ escrevia pan cru na imagem nova).
@@ -70,7 +113,18 @@ export default function ViewerView() {
     (globalThis as unknown as Record<string, unknown>).__liViewer = {
       get: () => {
         const s = useView.getState();
-        return { pan: s.pan, zoom: s.zoom, rotation: s.rotation, view: s.view, img: s.img };
+        const f = useStore.getState().settings.wallpaperFit;
+        const on = useUi.getState().immersive && f !== "free";
+        return {
+          pan: s.pan,
+          zoom: s.zoom,
+          rotation: s.rotation,
+          view: s.view,
+          img: s.img,
+          fit: f,
+          wallpaper: on,
+          layout: on ? layoutFor(f, s) : null,
+        };
       },
       setSrc: setFallbackSrc,
       view: useView,
@@ -96,6 +150,17 @@ export default function ViewerView() {
     useView.getState().zoomTo(nz, anchor);
   }, []);
 
+  /** Alterna o ajuste do papel de parede (persiste como as demais preferências). */
+  const cycleFit = useCallback(
+    (delta: number) => {
+      const i = Math.max(0, WALLPAPER_FITS.indexOf(useStore.getState().settings.wallpaperFit));
+      useStore.getState().setSettings({
+        wallpaperFit: WALLPAPER_FITS[stepIndex(i, delta, WALLPAPER_FITS.length)],
+      });
+    },
+    [],
+  );
+
   /** Bitmap decodificado: só aqui o clamp passa a ter medida real. */
   function onImgLoad() {
     const img = imgRef.current;
@@ -103,7 +168,7 @@ export default function ViewerView() {
   }
 
   function onWheel(e: React.WheelEvent) {
-    if (!e.ctrlKey) return;
+    if (wallpaper || !e.ctrlKey) return;
     e.preventDefault();
     const cur = effectiveZoom();
     const nz = nextZoom(cur, e.deltaY < 0 ? 1 : -1);
@@ -122,6 +187,7 @@ export default function ViewerView() {
   }
 
   function onPointerDown(e: React.PointerEvent) {
+    if (wallpaper) return;
     dragRef.current = { x: e.clientX, y: e.clientY, px: pan.x, py: pan.y };
     // Blindada: NotFoundError com pointer não-ativo mataria o pan inteiro.
     try {
@@ -185,10 +251,13 @@ export default function ViewerView() {
       else if (isVideo) {
         // Em vídeo, o resto dos atalhos de imagem não se aplica.
         if (e.key === "Enter") void openVideoExternally();
-      } else if (e.key === "+" || e.key === "=") applyZoom(nextZoom(effectiveZoom(), 1));
-      else if (e.key === "-") applyZoom(nextZoom(effectiveZoom(), -1));
-      else if (e.key === "0") applyZoom(0);
-      else if (e.key === "1") applyZoom(1);
+      } else if (immersive && e.key.toLowerCase() === "m") cycleFit(1);
+      // Com um ajuste de papel de parede ativo não há zoom nem pan: a escala é
+      // derivada do viewport, então as teclas de zoom não teriam efeito visível.
+      else if (!wallpaper && (e.key === "+" || e.key === "=")) applyZoom(nextZoom(effectiveZoom(), 1));
+      else if (!wallpaper && e.key === "-") applyZoom(nextZoom(effectiveZoom(), -1));
+      else if (!wallpaper && e.key === "0") applyZoom(0);
+      else if (!wallpaper && e.key === "1") applyZoom(1);
       else if (e.key.toLowerCase() === "f") void toggleFullscreen();
       else if (e.key.toLowerCase() === "e") openEditor(path);
       else if (e.key.toLowerCase() === "i") setShowExif((v) => !v);
@@ -201,7 +270,7 @@ export default function ViewerView() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, effectiveZoom, applyZoom, openEditor, path, immersive, isVideo]);
+  }, [step, effectiveZoom, applyZoom, cycleFit, openEditor, path, immersive, isVideo, wallpaper]);
 
   // Formato que o webview não decodifica (ex.: TIFF) → fallback via Rust.
   async function onImgError() {
@@ -216,8 +285,20 @@ export default function ViewerView() {
   const z = calcZoom({ zoom, rotation, view: viewSize, img: imgSize });
   const src = fallbackSrc || (path ? convertFileSrc(path) : "");
 
+  const swap = rotation % 180 !== 0;
+  const layout = wallpaper
+    ? layoutFor(fit, { rotation, img: imgSize, view: viewSize })
+    : null;
+  // O `scale` do CSS age nos eixos da IMAGEM e é aplicado antes do `rotate`;
+  // com 90/270 os fatores de tela trocam de eixo na volta.
+  const wallpaperTransform = layout
+    ? `rotate(${rotation}deg) scale(${swap ? layout.scaleY : layout.scaleX}, ${
+        swap ? layout.scaleX : layout.scaleY
+      })`
+    : "";
+
   return (
-    <div className={`viewer${immersive ? " immersive" : ""}`}>
+    <div className={`viewer${immersive ? " immersive" : ""}${wallpaper ? " wallpaper-mode" : ""}`}>
       {!immersive && (
       <div className="viewer-bar">
         <button className="icon-btn" onClick={goHome} title={t("topbar.home")}>
@@ -325,18 +406,35 @@ export default function ViewerView() {
           </div>
         ) : (
           src && (
-            <img
-              ref={imgRef}
-              className="viewer-img"
-              src={src}
-              alt=""
-              draggable={false}
-              onLoad={onImgLoad}
-              onError={() => void onImgError()}
-              style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) rotate(${rotation}deg) scale(${z})`,
-              }}
-            />
+            <>
+              {/* Mosaico: a repetição é do CSS (um <img> não se repete). O <img>
+                  continua montado, escondido — é ele que mede o bitmap e dispara
+                  o fallback de formato (TIFF via Rust), que o mosaico reusa. */}
+              {wallpaper && fit === "tile" && (
+                <div
+                  className="wallpaper-tile"
+                  style={{ backgroundImage: `url("${src.replace(/"/g, "%22")}")` }}
+                />
+              )}
+              <img
+                ref={imgRef}
+                className={`viewer-img${wallpaper ? " wallpaper" : ""}`}
+                src={src}
+                alt=""
+                draggable={false}
+                onLoad={onImgLoad}
+                onError={() => void onImgError()}
+                style={
+                  wallpaper && fit === "tile"
+                    ? { display: "none" }
+                    : {
+                        transform: wallpaper
+                          ? wallpaperTransform
+                          : `translate(${pan.x}px, ${pan.y}px) rotate(${rotation}deg) scale(${z})`,
+                      }
+                }
+              />
+            </>
           )
         )}
         {showExif && (
@@ -354,6 +452,21 @@ export default function ViewerView() {
             )}
             <div className="exif-note">{t("viewer.exifNote")}</div>
           </aside>
+        )}
+        {immersive && !isVideo && (
+          <div className="wallpaper-bar" title={t("viewer.wallpaperFit")}>
+            <select
+              className="wallpaper-fit"
+              value={fit}
+              onChange={(e) => setSettings({ wallpaperFit: e.target.value as WallpaperFit })}
+            >
+              {WALLPAPER_FITS.map((f) => (
+                <option key={f} value={f}>
+                  {t(FIT_LABELS[f])}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
         {immersive && (
           <button
