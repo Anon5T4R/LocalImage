@@ -12,6 +12,8 @@ interface UiState {
   batchOpen: boolean;
   settingsOpen: boolean;
   windowPickOpen: boolean;
+  /** Modal de OCR ("Copiar texto da imagem"). */
+  ocrOpen: boolean;
   /** Modo imersivo do visualizador: só a imagem, interface escondida. */
   immersive: boolean;
 
@@ -21,6 +23,7 @@ interface UiState {
   setBatchOpen(open: boolean): void;
   setSettingsOpen(open: boolean): void;
   setWindowPickOpen(open: boolean): void;
+  setOcrOpen(open: boolean): void;
   setImmersive(on: boolean): void;
 }
 
@@ -32,6 +35,7 @@ export const useUi = create<UiState>((set) => ({
   batchOpen: false,
   settingsOpen: false,
   windowPickOpen: false,
+  ocrOpen: false,
   immersive: false,
 
   toast(kind, text) {
@@ -55,6 +59,9 @@ export const useUi = create<UiState>((set) => ({
   },
   setWindowPickOpen(open) {
     set({ windowPickOpen: open });
+  },
+  setOcrOpen(open) {
+    set({ ocrOpen: open });
   },
   setImmersive(on) {
     set({ immersive: on });

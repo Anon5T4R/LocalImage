@@ -5,6 +5,7 @@ import BatchModal from "./components/BatchModal";
 import ConvertModal from "./components/ConvertModal";
 import EditorView from "./components/EditorView";
 import HomeView from "./components/HomeView";
+import OcrModal from "./components/OcrModal";
 import SettingsModal from "./components/SettingsModal";
 import Toasts from "./components/Toasts";
 import TopBar from "./components/TopBar";
@@ -80,6 +81,7 @@ export default function App() {
         </div>
       )}
       <ConvertModal />
+      <OcrModal />
       <BatchModal />
       <SettingsModal />
       <WindowPickModal />

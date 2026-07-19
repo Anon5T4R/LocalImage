@@ -787,6 +787,58 @@ input[type="checkbox"] {
   overflow-y: auto;
   padding: 18px 22px;
 }
+/* OCR: prévia grande à esquerda + controles/resultado à direita. */
+.modal.wide {
+  width: min(1080px, calc(100vw - 40px));
+}
+.ocr-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 16px;
+  align-items: start;
+}
+.ocr-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Altura fixa: o fitScale mede este wrap, e um wrap que cresce com a imagem
+     realimentaria o ResizeObserver (mede → escala → cresce → mede…). */
+  height: min(60vh, 560px);
+  background: var(--bg);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.ocr-preview canvas {
+  cursor: crosshair;
+  touch-action: none; /* sem isto o arrasto da seleção vira scroll/pan do webview */
+  display: block;
+}
+.ocr-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
+}
+.ocr-text {
+  width: 100%;
+  min-height: 200px;
+  max-height: 320px;
+  resize: vertical;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.45;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.ocr-result-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .modal-head {
   display: flex;
   align-items: center;

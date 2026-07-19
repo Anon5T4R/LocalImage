@@ -67,6 +67,17 @@ jobs:
       - name: Install JS deps
         run: npm ci
 
+      # Antes do tauri-action: o beforeBuildCommand (`npm run build`) empacota
+      # public/ no dist, então os assets do OCR têm que já estar no lugar.
+      - name: Montar assets do OCR (tesseract) — Windows
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: powershell -ExecutionPolicy Bypass -File scripts/fetch-tessdata.ps1
+
+      - name: Montar assets do OCR (tesseract) — Linux
+        if: matrix.platform == 'ubuntu-22.04'
+        run: bash scripts/fetch-tessdata.sh
+
       - name: Cargo.lock em dia (--locked)
         working-directory: src-tauri
         run: cargo fetch --locked

@@ -1,7 +1,7 @@
 {
   "name": "localimage",
   "private": true,
-  "version": "0.10.0",
+  "version": "0.11.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -16,6 +16,7 @@
     "@tauri-apps/plugin-opener": "^2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "tesseract.js": "^7.0.0",
     "zustand": "^5.0.2"
   },
   "devDependencies": {
@@ -28,6 +29,7 @@
     "vitest": "^4.1.9"
   },
   "allowScripts": {
-    "esbuild@0.28.1": true
+    "esbuild@0.28.1": true,
+    "tesseract.js@7.0.0": false
   }
 }

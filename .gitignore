@@ -5,3 +5,8 @@ src-tauri/gen/schemas
 
 .claude
 *.local
+
+# OCR runtime (worker/core do tesseract.js + os .traineddata por/eng) — montado
+# por scripts/fetch-tessdata.{sh,ps1} e empacotado pelo vite a partir de public/.
+# ~26 MB de binário que não têm por que viver no git.
+public/tesseract/

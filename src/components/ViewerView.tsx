@@ -60,6 +60,8 @@ export default function ViewerView() {
   const fit = useStore((s) => s.settings.wallpaperFit);
   const setSettings = useStore((s) => s.setSettings);
   const setConvertOpen = useUi((s) => s.setConvertOpen);
+  const setOcrOpen = useUi((s) => s.setOcrOpen);
+  const ocrOpen = useUi((s) => s.ocrOpen);
   const immersive = useUi((s) => s.immersive);
   const setImmersive = useUi((s) => s.setImmersive);
   const toast = useUi((s) => s.toast);
@@ -246,6 +248,9 @@ export default function ViewerView() {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
+      // Com o OCR aberto os atalhos do visualizador ficam mudos: ←/→ trocariam
+      // a imagem ATRÁS do modal, que segue mostrando (e reconhecendo) a antiga.
+      if (ocrOpen) return;
       if (e.key === "ArrowLeft") step(-1);
       else if (e.key === "ArrowRight") step(1);
       else if (isVideo) {
@@ -261,6 +266,7 @@ export default function ViewerView() {
       else if (e.key.toLowerCase() === "f") void toggleFullscreen();
       else if (e.key.toLowerCase() === "e") openEditor(path);
       else if (e.key.toLowerCase() === "i") setShowExif((v) => !v);
+      else if (e.key.toLowerCase() === "t") setOcrOpen(true);
       else if (e.key === "Delete") setConfirmDel(true);
       else if (e.key === "Escape") {
         if (immersive) void setImmersiveMode(false);
@@ -270,7 +276,19 @@ export default function ViewerView() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, effectiveZoom, applyZoom, cycleFit, openEditor, path, immersive, isVideo, wallpaper]);
+  }, [
+    step,
+    effectiveZoom,
+    applyZoom,
+    cycleFit,
+    openEditor,
+    path,
+    immersive,
+    isVideo,
+    wallpaper,
+    ocrOpen,
+    setOcrOpen,
+  ]);
 
   // Formato que o webview não decodifica (ex.: TIFF) → fallback via Rust.
   async function onImgError() {
@@ -361,6 +379,9 @@ export default function ViewerView() {
           </button>
           <button className="btn small" onClick={() => setConvertOpen(true)}>
             {t("viewer.convert")}
+          </button>
+          <button className="btn small" onClick={() => setOcrOpen(true)} title={t("viewer.ocrTitle")}>
+            {t("viewer.ocr")}
           </button>
           <button className="btn small primary" onClick={() => openEditor(path)} title={t("viewer.annotateTitle")}>
             ✎ {t("viewer.annotate")}

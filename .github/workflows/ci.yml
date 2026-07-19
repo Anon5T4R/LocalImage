@@ -45,6 +45,11 @@ jobs:
       - name: Install JS deps
         run: npm ci
 
+      # Depois do npm ci: o script copia o worker/core do node_modules e baixa
+      # os traineddata (commit fixo + sha256). Sem isto o build sai sem OCR.
+      - name: Montar assets do OCR (tesseract)
+        run: bash scripts/fetch-tessdata.sh
+
       - name: Frontend build
         run: npm run build
 
