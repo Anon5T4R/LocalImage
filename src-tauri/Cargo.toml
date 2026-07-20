@@ -1,6 +1,6 @@
 [package]
 name = "localimage"
-version = "0.11.1"
+version = "0.12.0"
 description = "LocalImage — visualizador, anotador e captura de tela 100% offline"
 authors = ["Taylor"]
 edition = "2021"

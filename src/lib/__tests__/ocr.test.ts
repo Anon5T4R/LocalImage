@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { MIN_SELECTION, ocrRegion, ocrScale, rotatedDims } from "../ocr";
+import {
+  MIN_SELECTION,
+  ocrRegion,
+  ocrScale,
+  ocrTextName,
+  rotatedDims,
+  textToBase64,
+} from "../ocr";
 
 describe("ocrScale", () => {
   it("amplia o que é pequeno demais pro LSTM (recorte de print)", () => {
@@ -86,5 +93,51 @@ describe("ocrRegion", () => {
       w: W,
       h: H,
     });
+  });
+});
+
+describe("ocrTextName", () => {
+  it("TROCA a extensão em vez de anexar", () => {
+    // O `${name}.txt` ingênuo daria "foto.jpg.txt", que fica feio na pasta.
+    expect(ocrTextName("foto.jpg")).toBe("foto.txt");
+  });
+
+  it("só a ÚLTIMA extensão sai — nome com ponto no meio fica inteiro", () => {
+    expect(ocrTextName("backup.2026.png")).toBe("backup.2026.txt");
+  });
+
+  it("nome sem extensão só ganha o sufixo", () => {
+    expect(ocrTextName("captura")).toBe("captura.txt");
+  });
+});
+
+/** Volta base64 → texto sem depender de `Buffer` (o tsc do app não tem @types/node). */
+function fromBase64(b64: string): string {
+  const bin = atob(b64);
+  const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+describe("textToBase64", () => {
+  // Estes dois são o motivo da função existir: o caminho ingênuo é
+  // `btoa(texto)`, que JOGA EXCEÇÃO em qualquer caractere fora do latin-1.
+  // OCR em português acentua na primeira linha, então não é caso de borda.
+  it("acento sobrevive (o btoa cru explodiria)", () => {
+    const txt = "Endereço: Avenida São João, nº 1.200 — ação";
+    const back = fromBase64(textToBase64(txt));
+    expect(back).toBe(txt);
+  });
+
+  it("texto longo não estoura a pilha (spread em blocos)", () => {
+    // O `String.fromCharCode(...bytes)` de uma vez estoura em ~100k argumentos;
+    // documento escaneado passa disso com folga.
+    const txt = "Parágrafo com acentuação. ".repeat(20000);
+    const back = fromBase64(textToBase64(txt));
+    expect(back).toBe(txt);
+    expect(back.length).toBeGreaterThan(500000);
+  });
+
+  it("vazio vira vazio", () => {
+    expect(textToBase64("")).toBe("");
   });
 });

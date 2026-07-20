@@ -10,6 +10,7 @@
 // girou a imagem de propósito. A rotação é lida do store de view (fonte única)
 // e só é assada neste canvas local — nada aqui escreve zoom/rotação/pan.
 
+import { save } from "@tauri-apps/plugin-dialog";
 import { useCallback, useEffect, useRef, useState } from "react";
 import * as be from "../lib/backend";
 import { clampRect, fitScale, normRect, type Rect } from "../lib/geometry";
@@ -21,11 +22,13 @@ import {
   ocrCanvas,
   ocrRegion,
   ocrScale,
+  ocrTextName,
   OcrCanceled,
   rotatedDims,
+  textToBase64,
 } from "../lib/ocr";
 import type { OcrWord } from "../lib/ocr";
-import { fileName } from "../lib/types";
+import { dirName, fileName } from "../lib/types";
 import { useStore } from "../state/store";
 import { useUi } from "../state/ui";
 import { useView } from "../state/view";
@@ -57,6 +60,7 @@ export default function OcrModal() {
   const [dims, setDims] = useState({ w: 0, h: 0 });
   const [langPor, setLangPor] = useState(true);
   const [langEng, setLangEng] = useState(false);
+  const [langSpa, setLangSpa] = useState(false);
   const [sel, setSel] = useState<Rect | null>(null);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState("");
@@ -75,7 +79,12 @@ export default function OcrModal() {
   const dragRef = useRef<{ x: number; y: number } | null>(null);
   const [scale, setScale] = useState(1);
 
-  const langs = [langPor && "por", langEng && "eng"].filter(Boolean).join("+");
+  // Ordem fixa (não a de clique): o tesseract usa a PRIMEIRA língua da lista
+  // como principal, então "por+eng" e "eng+por" não dão o mesmo resultado. Fixar
+  // aqui evita que o acerto dependa da ordem em que o usuário marcou as caixas.
+  const langs = [langPor && "por", langEng && "eng", langSpa && "spa"]
+    .filter(Boolean)
+    .join("+");
 
   // Carrega e assa a rotação. O load vem do Rust (mesma via do editor) porque é
   // o único caminho que decodifica TIFF & cia — o webview não decodifica.
@@ -266,6 +275,26 @@ export default function OcrModal() {
     }
   }
 
+  // Salvar em .txt ao lado da imagem. Copiar resolve o caso "colar agora";
+  // documento escaneado com 3 mil caracteres o usuário quer em arquivo, e o
+  // clipboard perde tudo no próximo Ctrl+C.
+  async function saveTxt() {
+    if (!result?.text) return;
+    const sep = navigator.userAgent.includes("Windows") ? "\\" : "/";
+    const out = await save({
+      title: t("ocr.saveTitle"),
+      defaultPath: `${dirName(path)}${sep}${ocrTextName(fileName(path))}`,
+      filters: [{ name: "TXT", extensions: ["txt"] }],
+    }).catch(() => null);
+    if (!out) return;
+    try {
+      await be.writeFileBase64(out, textToBase64(result.text));
+      toast("success", t("ocr.saved", { name: fileName(out) }));
+    } catch (e) {
+      toast("error", t("ocr.saveFailed", { e: String(e) }));
+    }
+  }
+
   function close() {
     if (busy) cancelOcr();
     setOpen(false);
@@ -317,6 +346,15 @@ export default function OcrModal() {
               />
               <span>{t("ocr.langEng")}</span>
             </label>
+            <label className="form-inline">
+              <input
+                type="checkbox"
+                checked={langSpa}
+                disabled={busy}
+                onChange={(e) => setLangSpa(e.target.checked)}
+              />
+              <span>{t("ocr.langSpa")}</span>
+            </label>
             <p className="card-hint">{sel ? t("ocr.selectionOn") : t("ocr.selectionHint")}</p>
             {sel && (
               <button className="btn small" disabled={busy} onClick={() => setSel(null)}>
@@ -349,10 +387,21 @@ export default function OcrModal() {
                   <button className="btn small primary" disabled={!result.text} onClick={() => void copy()}>
                     {t("ocr.copy")}
                   </button>
+                  <button className="btn small" disabled={!result.text} onClick={() => void saveTxt()}>
+                    {t("ocr.save")}
+                  </button>
                   <span className="card-hint">
                     {t("ocr.stats", { words: result.words.length, chars: result.text.length })}
                   </span>
                 </div>
+                {/* MEDIDO: num print de conversa com balão verde, o tesseract
+                    devolveu 3 das 6 mensagens — a luminância do balão cai do
+                    lado do TEXTO na binarização global, então glifo e fundo se
+                    fundem. Não dá erro: o resultado vem parcial e plausível, que
+                    é o pior jeito de falhar. Recortar só o balão lê os mesmos
+                    dizeres com confiança 96, então a saída é dizer isso a quem
+                    olha o resultado — sem seleção, não temos como detectar. */}
+                {!sel && <p className="card-hint">{t("ocr.partialHint")}</p>}
               </>
             )}
             {note && <p className="card-hint">{note}</p>}

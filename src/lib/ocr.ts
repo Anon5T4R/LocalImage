@@ -210,6 +210,41 @@ export function cancelOcr(): void {
   void disposeOcr();
 }
 
+// ---------------------------------------------------------------------------
+// Salvar o texto
+// ---------------------------------------------------------------------------
+
+/**
+ * Nome sugerido pro `.txt` a partir do nome da imagem. Troca a extensão em vez
+ * de anexar: "foto.jpg" vira "foto.txt", não "foto.jpg.txt" — o segundo é o que
+ * sai de um `${name}.txt` ingênuo e fica feio na pasta do usuário.
+ *
+ * Nome sem extensão ("captura") só ganha o sufixo. Só a ÚLTIMA extensão sai,
+ * então "backup.2026.png" vira "backup.2026.txt" e não perde a parte do meio.
+ */
+export function ocrTextName(imageName: string): string {
+  const stem = imageName.replace(/\.[^.\\/]+$/, "");
+  return `${stem || imageName}.txt`;
+}
+
+/**
+ * UTF-8 → base64, que é o que o `write_file_base64` do Rust aceita. O caminho
+ * ingênuo (`btoa(text)`) EXPLODE com acento — e OCR em português produz acento
+ * na primeira linha, então isso não é caso de borda, é o caso comum. O
+ * TextEncoder resolve gerando os bytes UTF-8 antes do base64.
+ */
+export function textToBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let bin = "";
+  // Em blocos: `String.fromCharCode(...bytes)` estoura a pilha em texto grande
+  // (spread de centenas de milhares de argumentos).
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    bin += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+  }
+  return btoa(bin);
+}
+
 export async function disposeOcr(): Promise<void> {
   const w = worker;
   worker = null;

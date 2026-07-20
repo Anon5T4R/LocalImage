@@ -1,30 +1,38 @@
 # Monta public/tesseract (gitignored): worker+core copiados do node_modules e
-# os idiomas por/eng baixados do tessdata_fast. O vite empacota public/ no dist,
-# então o OCR fica 100% offline no app final.
+# os idiomas por/eng/spa baixados do nosso espelho. O vite empacota public/ no
+# dist, então o OCR fica 100% offline no app final.
 # Usage: powershell -ExecutionPolicy Bypass -File scripts/fetch-tessdata.ps1
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 # ---------------------------------------------------------------------------
-# COMMIT FIXO + SHA256 (2026-07-18)
+# ESPELHO + SHA256 (2026-07-20)
 #
-# Era `tessdata_fast/raw/main/...` — o HEAD de um BRANCH. Era o pior caso de
-# toda a suíte: pior que uma tag `latest` (que ao menos aponta pra uma release
-# publicada), porque qualquer commit no branch mudava o que entrava no app, na
-# hora, sem release nenhuma no meio.
+# Histórico: era `tessdata_fast/raw/main/...` — o HEAD de um BRANCH, o pior caso
+# de toda a suíte (qualquer commit mudava o modelo dentro do app na hora, sem
+# release no meio). Em 2026-07-18 virou commit fixo + sha256 por arquivo.
 #
-# Agora: commit fixo (imutável) + sha256 por arquivo. Modelo de OCR trocado sem
-# aviso muda o RESULTADO do reconhecimento nos documentos do usuário.
+# O que mudou agora: commit fixo resolve IMUTABILIDADE, mas não
+# DISPONIBILIDADE. O `espelho-de-binarios.md` dizia "não espelhar tessdata, o
+# commit já é imutável" — e isso confunde as duas coisas. Um commit imutável que
+# some (repo apagado, renomeado, ou o raw.githubusercontent bloqueando o IP do
+# runner, que é EXATAMENTE o que o CDN do HuggingFace já fez com a suíte) deixa
+# o build sem o modelo do mesmo jeito. Agora baixa do nosso espelho, igual aos
+# outros 16 artefatos da suíte.
 #
-# PRA ATUALIZAR: pegar o commit novo em
-# github.com/tesseract-ocr/tessdata_fast/commits/main, baixar os .traineddata
-# daquele commit, rodar `sha256sum` e trocar as constantes aqui e no
-# `fetch-tessdata.sh`.
+# O sha256 continua sendo o do arquivo upstream — o espelho é cópia byte a byte,
+# então a conferência prova as DUAS pontas de uma vez.
+#
+# PRA ATUALIZAR: subir os .traineddata novos na release `v1` do
+# Anon5T4R/Local-runtimes, acrescentar ao MANIFEST.json com sha256/proveniência,
+# e trocar as constantes aqui e no `fetch-tessdata.sh`.
 # ---------------------------------------------------------------------------
-$tdCommit = "87416418657359cb625c412a48b6e1d6d41c29bd"
+$tdMirror = "https://github.com/Anon5T4R/Local-runtimes/releases/download/v1"
+$tdVer = "87416418"  # prefixo do commit tessdata_fast espelhado
 $tdSha256 = @{
     "por" = "c4932b937207a9514b7514d518b931a99938c02a28a5a5a553f8599ed58b7deb"
     "eng" = "7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2"
+    "spa" = "6f2e04d02774a18f01bed44b1111f2cd7f3ba7ac9dc4373cd3f898a40ea6b464"
 }
 
 $root = Split-Path -Parent $PSScriptRoot
@@ -66,10 +74,10 @@ Get-ChildItem -Path $core -Filter "tesseract-core*" |
     Where-Object { $_.Name -notlike "*.wasm.js" } |
     Remove-Item -Force
 
-foreach ($l in @("por", "eng")) {
+foreach ($l in @("por", "eng", "spa")) {
     $out = Join-Path $lang "$l.traineddata"
     if (Test-Path $out) { Write-Host "$l.traineddata já existe"; continue }
-    $url = "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/$tdCommit/$l.traineddata"
+    $url = "$tdMirror/tessdata_fast-$tdVer-$l.traineddata"
     Write-Host "Baixando $l.traineddata ..."
     $tmp = Join-Path $env:TEMP "$l.traineddata.tmp"
     Invoke-WebRequest -Uri $url -OutFile $tmp

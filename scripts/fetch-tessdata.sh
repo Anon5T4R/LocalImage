@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
 # Monta public/tesseract (gitignored): worker+core do node_modules e os idiomas
-# por/eng do tessdata_fast. O vite empacota public/ no dist → OCR 100% offline.
+# por/eng/spa do nosso espelho. O vite empacota public/ no dist → OCR 100%
+# offline.
 set -euo pipefail
 
 # ---------------------------------------------------------------------------
-# COMMIT FIXO + SHA256 (2026-07-18) — ver o comentário no fetch-tessdata.ps1.
+# ESPELHO + SHA256 (2026-07-20) — ver o comentário longo no fetch-tessdata.ps1.
 #
-# Era `tessdata_fast/raw/main/` — o HEAD de um BRANCH, o pior caso da suíte:
-# qualquer commit no branch mudava o que entrava no app na hora, sem release
-# nenhuma no meio. Agora commit imutável + sha256 por arquivo.
-# PRA ATUALIZAR: trocar as constantes aqui E no .ps1, sempre no MESMO commit.
+# Resumo: commit fixo (2026-07-18) resolveu IMUTABILIDADE; espelho resolve
+# DISPONIBILIDADE, que é outra coisa. Um commit que some — repo apagado ou o
+# raw.githubusercontent bloqueando o IP do runner, como o CDN do HF já fez com a
+# suíte — deixa o build sem modelo do mesmo jeito. O sha256 segue sendo o do
+# arquivo upstream (o espelho é cópia byte a byte), então confere as duas pontas.
+# PRA ATUALIZAR: subir no Local-runtimes v1 + MANIFEST.json, trocar aqui E no .ps1.
 # ---------------------------------------------------------------------------
-TD_COMMIT="87416418657359cb625c412a48b6e1d6d41c29bd"
+TD_MIRROR="https://github.com/Anon5T4R/Local-runtimes/releases/download/v1"
+TD_VER="87416418"  # prefixo do commit tessdata_fast espelhado
 TD_SHA_POR="c4932b937207a9514b7514d518b931a99938c02a28a5a5a553f8599ed58b7deb"
 TD_SHA_ENG="7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2"
+TD_SHA_SPA="6f2e04d02774a18f01bed44b1111f2cd7f3ba7ac9dc4373cd3f898a40ea6b464"
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
 dest="$root/public/tesseract"
@@ -37,18 +42,19 @@ cp "$root"/node_modules/tesseract.js-core/tesseract-core*lstm*.wasm.js "$dest/co
 # então `git clean` não pega) e eles seguiriam entrando no dist.
 find "$dest/core" -name 'tesseract-core*' ! -name '*.wasm.js' -delete
 
-for l in por eng; do
+for l in por eng spa; do
   out="$dest/lang/$l.traineddata"
   if [ -f "$out" ]; then echo "$l.traineddata já existe"; continue; fi
 
   case "$l" in
     por) want="$TD_SHA_POR" ;;
     eng) want="$TD_SHA_ENG" ;;
+    spa) want="$TD_SHA_SPA" ;;
   esac
 
   echo "Baixando $l.traineddata ..."
   curl -fsSL --retry 3 --retry-delay 2 \
-    "https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/$TD_COMMIT/$l.traineddata" \
+    "$TD_MIRROR/tessdata_fast-$TD_VER-$l.traineddata" \
     -o "$out.tmp"
 
   # Confere ANTES de mover pro destino: modelo adulterado não vira asset do app.
