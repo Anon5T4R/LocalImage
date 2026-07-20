@@ -1,0 +1,52 @@
+Dados e componentes de terceiros distribuídos com o LocalImage
+=============================================================
+
+O LocalImage é software livre sob a licença MIT (veja o LICENSE na raiz do
+repositório). O instalador acompanha componentes de terceiros em versões NÃO
+MODIFICADAS. Cada um mantém a sua própria licença — o que segue cumpre as
+obrigações de quem os redistribui.
+
+⚠️ Nota de forma: diferente dos apps que trazem sidecar, aqui NÃO existe
+binário solto no instalador. Os arquivos abaixo entram em public/tesseract, o
+Vite os empacota no dist e o dist é compilado DENTRO do executável do app. Por
+isso um `7z l` no instalador não os mostra — mas continua sendo redistribuição,
+e a obrigação de licença é exatamente a mesma.
+
+
+1) tessdata_fast (modelos de OCR) — Apache-2.0
+----------------------------------------------
+Modelos de idioma do Tesseract usados no OCR.
+
+  idiomas ........... por, eng, spa
+  commit do upstream  87416418 (prefixo)
+  fonte ............. https://github.com/tesseract-ocr/tessdata_fast
+  espelho ........... https://github.com/Anon5T4R/Local-runtimes (release v1)
+  sha256 (por) ...... c4932b937207a9514b7514d518b931a99938c02a28a5a5a553f8599ed58b7deb
+  sha256 (eng) ...... 7d4322bd2a7749724879683fc3912cb542f19906c83bcc1a52132556427170b2
+  sha256 (spa) ...... 6f2e04d02774a18f01bed44b1111f2cd7f3ba7ac9dc4373cd3f898a40ea6b464
+
+  Texto da licença .. LICENSE-Apache-2.0.txt
+
+
+2) tesseract.js e tesseract.js-core — Apache-2.0
+------------------------------------------------
+O worker e o core WebAssembly do OCR, copiados do node_modules pra
+public/tesseract pelo scripts/fetch-tessdata.
+
+  versão ............ tesseract.js 7.x (ver package.json / package-lock.json)
+  fonte ............. https://github.com/naptha/tesseract.js
+  Texto da licença .. LICENSE-Apache-2.0.txt (mesma licença do item 1; o texto
+                      da Apache-2.0 é único e vale pros dois)
+
+  A Apache-2.0 exige repassar a licença e, quando o projeto publica um arquivo
+  NOTICE, também o NOTICE. Nem o tessdata_fast nem o tesseract.js publicam
+  NOTICE (conferido em 2026-07-20), então o texto da licença basta.
+
+
+Por que este texto é VERSIONADO aqui
+-------------------------------------
+Os .traineddata são arquivos de dados: não trazem licença dentro, e não há o
+que extrair do download. Diferente do ffmpeg do BtbN, onde o LICENSE.txt vem no
+próprio zip e por isso é copiado de lá em vez de mantido como cópia nossa.
+Aqui a cópia fica no repositório e o glob "third-party/*" do tauri.conf.json a
+empacota.
